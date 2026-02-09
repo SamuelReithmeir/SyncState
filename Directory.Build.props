@@ -2,7 +2,7 @@
   <!-- Central version management for all SyncState packages -->
   <PropertyGroup>
     <!-- Version Configuration -->
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.1.1</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <!-- Leave empty for release builds, or set to 'alpha.1', 'beta.1', etc. for pre-releases -->
     
@@ -13,8 +13,8 @@
     <Copyright>Copyright © 2026 Samuel Reithmeir</Copyright>
     
     <!-- NuGet Package Configuration -->
-    <PackageProjectUrl>https://github.com/yourorg/SyncState</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/yourorg/SyncState</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Samuel.Reithmeir/SyncState</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Samuel.Reithmeir/SyncState</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
