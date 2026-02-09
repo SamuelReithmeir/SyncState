@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        
+        <!-- Package-specific metadata -->
+        <PackageId>SyncState.StateDeltas</PackageId>
+        <Description>Delta encoding support for SyncState. Enables efficient state synchronization by transmitting only the differences (deltas) between state versions using JSON patch format. Reduces bandwidth and improves performance for real-time applications.</Description>
+        <PackageTags>$(PackageTags);delta;json-patch;diff;optimization</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SyncState.Core\SyncState.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="SystemTextJson.JsonDiffPatch" Version="2.0.0" />
+    </ItemGroup>
+
+</Project>

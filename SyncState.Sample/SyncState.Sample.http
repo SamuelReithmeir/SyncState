@@ -1,0 +1,61 @@
+@SyncState.Sample_HostAddress = http://localhost:5190
+
+### Get all orders
+GET {{SyncState.Sample_HostAddress}}/api/orders
+Accept: application/json
+
+### Get order by id
+GET {{SyncState.Sample_HostAddress}}/api/orders/1
+Accept: application/json
+
+### Create new order
+POST {{SyncState.Sample_HostAddress}}/api/orders
+Content-Type: application/json
+
+{
+  "customerId": 1,
+  "street": "123 Main St",
+  "city": "Springfield",
+  "postalCode": "12345",
+  "country": "USA"
+}
+
+### Update order
+PUT {{SyncState.Sample_HostAddress}}/api/orders/1
+Content-Type: application/json
+
+{
+  "status": 1,
+  "street": "456 Oak Ave",
+  "city": "Shelbyville",
+  "postalCode": "54321",
+  "country": "USA"
+}
+
+### Add item to order
+POST {{SyncState.Sample_HostAddress}}/api/orders/1/items
+Content-Type: application/json
+
+{
+  "productId": 101,
+  "quantity": 5,
+  "price": 29.99
+}
+
+### Update order item
+PUT {{SyncState.Sample_HostAddress}}/api/orders/items/1
+Content-Type: application/json
+
+{
+  "quantity": 10,
+  "price": 24.99
+}
+
+### Delete order item
+DELETE {{SyncState.Sample_HostAddress}}/api/orders/items/1
+Accept: application/json
+
+### Delete order
+DELETE {{SyncState.Sample_HostAddress}}/api/orders/1
+Accept: application/json
+

@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        
+        <!-- Package-specific metadata -->
+        <PackageId>SyncState.SignalR</PackageId>
+        <Description>SignalR integration for SyncState. Provides a base Hub class for streaming state updates and delta-encoded states to SignalR clients in real-time. Perfect for building reactive web applications with live state synchronization.</Description>
+        <PackageTags>$(PackageTags);signalr;real-time;websockets;hub</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SyncState.StateDeltas\SyncState.StateDeltas.csproj" />
+    </ItemGroup>
+
+</Project>

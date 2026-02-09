@@ -1,0 +1,50 @@
+﻿<Project>
+  <!-- Central version management for all SyncState packages -->
+  <PropertyGroup>
+    <!-- Version Configuration -->
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionSuffix></VersionSuffix>
+    <!-- Leave empty for release builds, or set to 'alpha.1', 'beta.1', etc. for pre-releases -->
+    
+    <!-- Package Metadata (inherited by all projects) -->
+    <Authors>Samuel Reithmeir</Authors>
+    <Company>SamuelRe</Company>
+    <Product>SyncState</Product>
+    <Copyright>Copyright © 2026 Samuel Reithmeir</Copyright>
+    
+    <!-- NuGet Package Configuration -->
+    <PackageProjectUrl>https://github.com/yourorg/SyncState</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourorg/SyncState</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageTags>state-management;real-time;signalr;entity-framework;reactive;pub-sub</PackageTags>
+    <PackageIcon>icon_1024.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    
+    <!-- Build Configuration -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- CS1591: Missing XML comment for publicly visible type or member -->
+    <!-- Remove this once all public APIs are documented (already done!) -->
+    
+    <!-- Source Link Configuration (for better debugging experience) -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- Source Link Package (for all projects) -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+  </ItemGroup>
+
+  <!-- Include icon in NuGet packages -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)assets\icon_1024.png" Pack="true" PackagePath="\" Visible="false"/>
+  </ItemGroup>
+</Project>

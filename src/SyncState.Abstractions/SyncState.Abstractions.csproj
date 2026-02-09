@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <RootNamespace>SyncState</RootNamespace>
+        
+        <!-- Package-specific metadata -->
+        <PackageId>SyncState.Abstractions</PackageId>
+        <Description>Core abstractions and interfaces for SyncState - a real-time state management library for .NET. This package contains the fundamental interfaces (ISyncStateService, ISyncCommandService) and models used across the SyncState ecosystem.</Description>
+        <PackageTags>$(PackageTags);abstractions;interfaces</PackageTags>
+    </PropertyGroup>
+
+</Project>
