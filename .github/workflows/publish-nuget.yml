@@ -1,0 +1,104 @@
+﻿name: Publish NuGet Packages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'src/**/*.csproj'
+      - 'Directory.Build.props'
+      - '.github/workflows/publish-nuget.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project:
+          - SyncState.Abstractions
+          - SyncState.Core
+          - SyncState.EntityFrameworkCore
+          - SyncState.OptionsMonitor
+          - SyncState.ReloadInterval
+          - SyncState.SignalR
+          - SyncState.StateDeltas
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Get version from Directory.Build.props
+        id: get-version
+        shell: bash
+        run: |
+          VERSION=$(grep -oP '<VersionPrefix>\K[^<]+' Directory.Build.props)
+          SUFFIX=$(grep -oP '<VersionSuffix>\K[^<]*' Directory.Build.props)
+          if [ -z "$SUFFIX" ]; then
+            FULL_VERSION=$VERSION
+          else
+            FULL_VERSION=$VERSION-$SUFFIX
+          fi
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $FULL_VERSION"
+
+      - name: Check if package already exists on NuGet.org
+        id: check-package
+        shell: bash
+        run: |
+          PACKAGE_NAME="${{ matrix.project }}"
+          VERSION="${{ steps.get-version.outputs.version }}"
+          
+          # Query NuGet.org API to check if this exact version exists
+          RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json" || echo "{}")
+          
+          if echo "$RESPONSE" | grep -q "\"$VERSION\""; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Package $PACKAGE_NAME version $VERSION already exists on NuGet.org"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Package $PACKAGE_NAME version $VERSION does not exist, will publish"
+          fi
+
+      - name: Build project
+        if: steps.check-package.outputs.exists == 'false'
+        run: dotnet build src/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release --no-restore
+
+      - name: Pack NuGet package
+        if: steps.check-package.outputs.exists == 'false'
+        run: |
+          dotnet pack src/${{ matrix.project }}/${{ matrix.project }}.csproj \
+            -c Release \
+            --no-build \
+            -o ./nupkg
+
+      - name: Upload NuGet package as artifact
+        if: steps.check-package.outputs.exists == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages-${{ matrix.project }}
+          path: ./nupkg/*.nupkg
+          retention-days: 30
+
+      - name: Publish to NuGet.org
+        if: steps.check-package.outputs.exists == 'false'
+        run: |
+          dotnet nuget push ./nupkg/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Skip publishing (package already exists)
+        if: steps.check-package.outputs.exists == 'true'
+        run: echo "Package ${{ matrix.project }} version ${{ steps.get-version.outputs.version }} already exists on NuGet.org. Skipping publication."
+

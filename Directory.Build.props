@@ -2,7 +2,7 @@
   <!-- Central version management for all SyncState packages -->
   <PropertyGroup>
     <!-- Version Configuration -->
-    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionPrefix>0.1.0</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <!-- Leave empty for release builds, or set to 'alpha.1', 'beta.1', etc. for pre-releases -->
     

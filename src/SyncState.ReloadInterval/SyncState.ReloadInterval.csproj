@@ -4,6 +4,11 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        
+        <!-- Package-specific metadata -->
+        <PackageId>SyncState.ReloadInterval</PackageId>
+        <Description>Timed reload integration for SyncState. Enables automatic state synchronization at configurable intervals using background workers. Ideal for polling-based state updates and scheduled synchronization scenarios.</Description>
+        <PackageTags>$(PackageTags);timer;interval;reload;background</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

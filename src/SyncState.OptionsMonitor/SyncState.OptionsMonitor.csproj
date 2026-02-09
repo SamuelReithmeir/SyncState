@@ -4,6 +4,11 @@
         <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        
+        <!-- Package-specific metadata -->
+        <PackageId>SyncState.OptionsMonitor</PackageId>
+        <Description>Options Monitor integration for SyncState. Enables automatic state synchronization when IOptions configuration values change. Perfect for reactive applications that need to respond to configuration updates in real-time.</Description>
+        <PackageTags>$(PackageTags);options;configuration;monitor</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
