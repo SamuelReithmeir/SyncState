@@ -79,7 +79,13 @@ internal class SyncStateBuilder : IInternalSyncStateBuilder
             .Select(builder => builder.Build())
             .ToList();
 
-        var configuration = new SyncStateConfiguration(stateConfigurations, _serviceCollectionProcessors,_initActions, _extensions);
+        var configuration = new SyncStateConfiguration
+        {
+            StateConfigurations = stateConfigurations,
+            ServiceCollectionProcessors = _serviceCollectionProcessors,
+            InitActions = _initActions,
+            Extensions = _extensions
+        };
         foreach (var processor in _configurationPostProcessors)
         {
             processor(configuration);

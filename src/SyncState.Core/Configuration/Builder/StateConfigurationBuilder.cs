@@ -103,11 +103,12 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
             }
         }
 
-        var configuration = new StateConfiguration<TState>(
-            propertyConfigurations,
-            _stateManagerType,
-            _extensions
-        );
+        var configuration = new StateConfiguration<TState>
+        {
+            Properties = propertyConfigurations,
+            StateManagerType = _stateManagerType,
+            Extensions = _extensions
+        };
         foreach (var processor in _configurationPostProcessors)
         {
             processor(configuration);

@@ -221,16 +221,17 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
 
         var scopeBehavior = _ScopeBehavior ?? PropertyGatheringServiceScopeBehavior.ShareScope;
 
-        var configuration = new PropertyConfiguration<TProperty>(
-            PropertyInfo,
-            Gatherer,
-            scopeBehavior,
-            PropertyManagerType,
-            equalityComparer,
-            CommandHandlers,
-            EventEmitters,
-            Extensions
-        );
+        var configuration = new PropertyConfiguration<TProperty>
+        {
+            PropertyInfo = PropertyInfo,
+            Gatherer = Gatherer,
+            ScopeBehavior = scopeBehavior,
+            PropertyManagerType = PropertyManagerType,
+            EqualityComparer = equalityComparer,
+            CommandHandlerConfigurations = CommandHandlers,
+            EventEmitters = EventEmitters,
+            Extensions = Extensions
+        };
 
         foreach (var buildAction in BuildActions)
         {

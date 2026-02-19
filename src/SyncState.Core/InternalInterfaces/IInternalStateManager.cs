@@ -1,4 +1,5 @@
 ﻿using System.Threading.Channels;
+using SyncState.Interfaces.Managers;
 
 namespace SyncState.InternalInterfaces;
 
@@ -27,7 +28,7 @@ public interface IInternalStateManager
     void DiscardChanges();
 }
 
-public interface IInternalStateManager<TState> : IInternalStateManager where TState : class
+public interface IInternalStateManager<TState> : IInternalStateManager,IStateManager<TState> where TState : class
 {
     ChannelReader<TState> GetStateStream(CancellationToken cancellationToken = default);
 }

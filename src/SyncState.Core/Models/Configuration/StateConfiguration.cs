@@ -1,28 +1,13 @@
 ﻿namespace SyncState.Models.Configuration;
 
-public abstract class StateConfiguration : BaseConfiguration
+public abstract record StateConfiguration : BaseConfiguration
 {
-    public List<PropertyConfiguration> Properties { get; }
-    public Type StateType { get; }
-    public Type StateManagerType { get; }
-
-    public StateConfiguration(List<PropertyConfiguration> properties,
-        Type stateType,
-        Type stateManagerType,
-        Dictionary<Type, object> extensions) : base(extensions)
-    {
-        Properties = properties;
-        StateType = stateType;
-        StateManagerType = stateManagerType;
-    }
+    public required List<PropertyConfiguration> Properties { get; init; }
+    public abstract Type StateType { get; }
+    public required Type StateManagerType { get; init; }
 }
 
-public class StateConfiguration<TState> : StateConfiguration
+public record StateConfiguration<TState> : StateConfiguration
 {
-    public StateConfiguration(List<PropertyConfiguration> properties, 
-        Type stateManagerType,
-        Dictionary<Type, object> extensions
-        ) : base(properties, typeof(TState), stateManagerType,extensions)
-    {
-    }
+    public override Type StateType => typeof(TState);
 }

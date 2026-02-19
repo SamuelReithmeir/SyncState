@@ -145,21 +145,22 @@ internal class CollectionPropertyBuilder<TState, TEntry, TKey> :
         var equalityComparer = EqualityComparer ?? EqualityComparer<IEnumerable<TEntry>>.Default;
         var entryEqualityComparer = _entryEqualityComparer ?? EqualityComparer<TEntry>.Default;
 
-        var configuration = new CollectionPropertyConfiguration<TEntry, TKey>(
-            PropertyInfo,
-            Gatherer,
-            scopeBehavior,
-            PropertyManagerType,
-            CommandHandlers,
-            equalityComparer,
-            entryEqualityComparer,
-            EventEmitters,
-            _onAddEventEmitterConfigurations,
-            _onRemoveEventEmitterConfigurations,
-            _onUpdateEventEmitterConfigurations,
-            _keySelector,
-            Extensions
-        );
+        var configuration = new CollectionPropertyConfiguration<TEntry, TKey>
+        {
+            PropertyInfo = PropertyInfo,
+            Gatherer = Gatherer,
+            ScopeBehavior = scopeBehavior,
+            PropertyManagerType = PropertyManagerType,
+            CommandHandlerConfigurations = CommandHandlers,
+            EqualityComparer = equalityComparer,
+            EntryEqualityComparer = entryEqualityComparer,
+            EventEmitters = EventEmitters,
+            OnAddEventEmitterConfigurations = _onAddEventEmitterConfigurations,
+            OnRemoveEventEmitterConfigurations = _onRemoveEventEmitterConfigurations,
+            OnUpdateEventEmitterConfigurations = _onUpdateEventEmitterConfigurations,
+            KeySelector = _keySelector,
+            Extensions = Extensions
+        };
 
         foreach (var buildAction in BuildActions)
         {

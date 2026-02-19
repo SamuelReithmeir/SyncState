@@ -138,4 +138,14 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
 
         return propertyManagers;
     }
+
+    public void SetValue(TState newValue)
+    {
+        HandleStateChange(newValue);
+    }
+
+    public TState GetCurrentValue()
+    {
+        return _currentState;
+    }
 }
