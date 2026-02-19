@@ -9,6 +9,7 @@ public abstract record PropertyConfiguration : BaseConfiguration
     public required List<CommandHandlerConfiguration> CommandHandlerConfigurations { get; init; }
     public required PropertyInfo PropertyInfo { get; init; }
     public required Type PropertyManagerType { get; init; }
+    public required List<Type> InterceptorTypes { get; init; }
 }
 
 public record PropertyConfiguration<TProperty> : PropertyConfiguration

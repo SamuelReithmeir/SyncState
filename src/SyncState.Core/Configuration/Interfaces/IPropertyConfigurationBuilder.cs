@@ -1,4 +1,5 @@
 ﻿using SyncState.Enums;
+using SyncState.Interfaces.Interceptors;
 using SyncState.Interfaces.Managers;
 
 namespace SyncState.Configuration.Interfaces;
@@ -128,4 +129,13 @@ public interface IPropertyConfigurationBuilder<TState, TProperty> where TState :
     /// <param name="equalityComparer">The equality comparer to use for comparing property values.</param>
     /// <returns>>The property configuration builder for method chaining.</returns>
     IPropertyConfigurationBuilder<TState, TProperty> WithEqualityComparer(IEqualityComparer<TProperty> equalityComparer);
+
+    /// <summary>
+    /// add an interceptor which will get called on relevant calls to this property manager
+    /// instance will get resolved from command digestion cycle scope
+    /// </summary>
+    /// <typeparam name="TInterceptor"></typeparam>
+    /// <returns></returns>
+    IPropertyConfigurationBuilder<TState, TProperty> WithInterceptor<TInterceptor>()
+        where TInterceptor : class, IPropertyInterceptor<TProperty>;
 }

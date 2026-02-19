@@ -3,6 +3,7 @@
 public abstract record StateConfiguration : BaseConfiguration
 {
     public required List<PropertyConfiguration> Properties { get; init; }
+    public required List<Type> InterceptorTypes { get; init; }
     public abstract Type StateType { get; }
     public required Type StateManagerType { get; init; }
 }

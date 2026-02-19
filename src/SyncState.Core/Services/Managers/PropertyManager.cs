@@ -2,9 +2,12 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using SyncState.Enums;
+using SyncState.Interfaces.Interceptors;
 using SyncState.InternalInterfaces;
 using SyncState.Models;
 using SyncState.Models.Configuration;
+using SyncState.Models.InterceptorContexts;
+using SyncState.Utils;
 
 namespace SyncState.Services.Managers;
 
@@ -23,7 +26,8 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
     private List<CommandHandlerConfiguration> CommandHandlerConfigurations =>
         Configuration.CommandHandlerConfigurations;
 
-    public BasePropertyManager(PropertyConfiguration<TProperty> configuration, IServiceProvider rootServiceProvider, IInternalSyncEventHub syncEventHub)
+    public BasePropertyManager(PropertyConfiguration<TProperty> configuration, IServiceProvider rootServiceProvider,
+        IInternalSyncEventHub syncEventHub)
     {
         Configuration = configuration;
         RootServiceProvider = rootServiceProvider;
@@ -67,6 +71,33 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
 
     public virtual async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
+        if (Configuration.InterceptorTypes.Count == 0)
+        {
+            await InitializeAsyncImpl(cancellationToken);
+            return;
+        }
+
+        if (SyncStateService.CurrentExecutionServiceProvider.Value is not { } serviceProvider)
+        {
+            throw new InvalidOperationException("No service provider available to initialize interceptors");
+        }
+
+        var interceptors = Configuration.InterceptorTypes
+            .Select(type => serviceProvider.GetRequiredService(type))
+            .OfType<IPropertyInterceptor<TProperty>>()
+            .ToList();
+
+        var pipeline =
+            InterceptorUtils.CreateInterceptorPipeline<IPropertyInterceptor<TProperty>, PropertyInitializationContext<TProperty>>(
+                interceptors,
+                (_, ct) => InitializeAsyncImpl(ct),
+                interceptor => interceptor.InitializeAsync
+            );
+
+        await pipeline(new PropertyInitializationContext<TProperty>(this), cancellationToken);
+    }
+    public virtual async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
+    {
         await ReloadValueAsync(cancellationToken);
         await CommitChangesAsync(cancellationToken);
     }
@@ -86,6 +117,37 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
     public abstract Task<bool> CommitChangesAsync(CancellationToken cancellationToken);
 
     public async Task HandleCommandAsync<TCommand>(TCommand command, CancellationToken cancellationToken)
+        where TCommand : notnull
+    {
+        if (Configuration.InterceptorTypes.Count == 0)
+        {
+            await HandleCommandAsyncImpl(command, cancellationToken);
+            return;
+        }
+
+        if (SyncStateService.CurrentExecutionServiceProvider.Value is not { } serviceProvider)
+        {
+            throw new InvalidOperationException("No service provider available to initialize interceptors");
+        }
+
+        var interceptors = Configuration.InterceptorTypes
+            .Select(type => serviceProvider.GetRequiredService(type))
+            .OfType<IPropertyInterceptor<TProperty>>()
+            .ToList();
+
+        var pipeline =
+            InterceptorUtils
+                .CreateInterceptorPipeline<IPropertyInterceptor<TProperty>,
+                    PropertyCommandContext<TProperty, TCommand>>(
+                    interceptors,
+                    (context, ct) => HandleCommandAsyncImpl(context.Command, ct),
+                    interceptor => interceptor.HandleCommandAsync
+                );
+
+        await pipeline(new PropertyCommandContext<TProperty, TCommand>(command, this), cancellationToken);
+    }
+
+    public async Task HandleCommandAsyncImpl<TCommand>(TCommand command, CancellationToken cancellationToken)
         where TCommand : notnull
     {
         foreach (var configuration in GetCommandHandlerConfigurationsForCommandType(typeof(TCommand))
@@ -117,18 +179,19 @@ public class DefaultPropertyManager<TProperty> : BasePropertyManager<TProperty>
     private TProperty _value = default!;
     private Option<TProperty> _pendingValue = Option<TProperty>.None;
 
-    public DefaultPropertyManager(PropertyConfiguration<TProperty> configuration, IServiceProvider rootServiceProvider,IInternalSyncEventHub syncEventHub)
+    public DefaultPropertyManager(PropertyConfiguration<TProperty> configuration, IServiceProvider rootServiceProvider,
+        IInternalSyncEventHub syncEventHub)
         : base(configuration, rootServiceProvider, syncEventHub)
     {
     }
 
     public override void SetValue(TProperty newValue)
     {
-        if(Configuration.EqualityComparer.Equals(newValue, GetCurrentValue(allowUnpublished: true)))
+        if (Configuration.EqualityComparer.Equals(newValue, GetCurrentValue(allowUnpublished: true)))
         {
             return;
         }
-        
+
         _pendingValue = Option<TProperty>.Some(newValue);
     }
 
@@ -153,9 +216,9 @@ public class DefaultPropertyManager<TProperty> : BasePropertyManager<TProperty>
         {
             foreach (var eventEmitterConfiguration in Configuration.EventEmitters)
             {
-                eventEmitterConfiguration.EmitEvent(_value,newValue,SyncEventHub);
+                eventEmitterConfiguration.EmitEvent(_value, newValue, SyncEventHub);
             }
-            
+
             _value = newValue;
             _pendingValue = Option<TProperty>.None;
             return Task.FromResult(true);

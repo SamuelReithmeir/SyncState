@@ -2,8 +2,11 @@
 using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using SyncState.Factories;
+using SyncState.Interfaces.Interceptors;
 using SyncState.InternalInterfaces;
 using SyncState.Models.Configuration;
+using SyncState.Models.InterceptorContexts;
+using SyncState.Utils;
 
 namespace SyncState.Services.Managers;
 
@@ -26,6 +29,33 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        if (_stateConfiguration.InterceptorTypes.Count == 0)
+        {
+            await InitializeAsyncImpl(cancellationToken);
+            return;
+        }
+
+        if (SyncStateService.CurrentExecutionServiceProvider.Value is not { } serviceProvider)
+        {
+            throw new InvalidOperationException("No service provider available to initialize interceptors");
+        }
+        var interceptors = _stateConfiguration.InterceptorTypes
+            .Select(type => serviceProvider.GetRequiredService(type))
+            .OfType<IStateInterceptor<TState>>()
+            .ToList();
+
+        var pipeline =
+            InterceptorUtils.CreateInterceptorPipeline<IStateInterceptor<TState>, StateInitializationContext<TState>>(
+                interceptors,
+                (_, ct) => InitializeAsyncImpl(ct),
+                interceptor => interceptor.InitializeAsync
+            );
+        
+        await pipeline(new StateInitializationContext<TState>(this), cancellationToken);
+    }
+
+    public async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
     {
         //create property managers
         foreach (var propertyConfiguration in _stateConfiguration.Properties)
@@ -80,10 +110,39 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         {
             throw new InvalidOperationException("Failed to write initial state to channel");
         }
+
         return channel.Reader;
     }
 
     public async Task HandleCommandAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
+        where TCommand : notnull
+    {
+        
+        if (_stateConfiguration.InterceptorTypes.Count == 0)
+        {
+            await HandleCommandAsyncImpl(command, cancellationToken);
+            return;
+        }
+
+        if (SyncStateService.CurrentExecutionServiceProvider.Value is not { } serviceProvider)
+        {
+            throw new InvalidOperationException("No service provider available to initialize interceptors");
+        }
+        var interceptors = _stateConfiguration.InterceptorTypes
+            .Select(type => serviceProvider.GetRequiredService(type))
+            .OfType<IStateInterceptor<TState>>()
+            .ToList();
+
+        var pipeline =
+            InterceptorUtils.CreateInterceptorPipeline<IStateInterceptor<TState>, StateCommandContext<TState,TCommand>>(
+                interceptors,
+                (context, ct) => HandleCommandAsyncImpl(context.Command, ct),
+                interceptor => interceptor.HandleCommandAsync
+            );
+        
+        await pipeline(new StateCommandContext<TState,TCommand>(command,this), cancellationToken);
+    }
+    public async Task HandleCommandAsyncImpl<TCommand>(TCommand command, CancellationToken cancellationToken = default)
         where TCommand : notnull
     {
         foreach (var (id, propertyManager) in GetPropertyManagerIdsForCommandType<TCommand>()

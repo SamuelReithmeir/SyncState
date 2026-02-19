@@ -1,6 +1,8 @@
 ﻿using System.Linq.Expressions;
+using Microsoft.Extensions.DependencyInjection;
 using SyncState.Configuration.Interfaces;
 using SyncState.Configuration.InternalInterfaces;
+using SyncState.Interfaces.Interceptors;
 using SyncState.Models.Configuration;
 using SyncState.Services.Managers;
 using SyncState.Utils;
@@ -19,6 +21,7 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
     private Type? _stateManagerType;
     private readonly Dictionary<Type, object> _extensions = new();
     private readonly SyncStateBuilder _syncStateBuilder;
+    private readonly List<Type> InterceptorTypes = [];
     private readonly List<Action<StateConfiguration<TState>>> _configurationPostProcessors = [];
 
     public StateConfigurationBuilder(SyncStateBuilder syncStateBuilder)
@@ -54,6 +57,16 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
     public IStateConfigurationBuilder<TState> WithStateManager<TStateManager>() where TStateManager : class
     {
         _stateManagerType = typeof(TStateManager);
+        return this;
+    }
+
+    public IStateConfigurationBuilder<TState> WithInterceptor<TInterceptor>() where TInterceptor : class, IStateInterceptor<TState>
+    {
+        InterceptorTypes.Add(typeof(TInterceptor));
+        _syncStateBuilder.AddServiceCollectionProcessor(services =>
+        {
+            services.AddTransient<IStateInterceptor<TState>, TInterceptor>();
+        });
         return this;
     }
 
@@ -107,6 +120,7 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
         {
             Properties = propertyConfigurations,
             StateManagerType = _stateManagerType,
+            InterceptorTypes = InterceptorTypes,
             Extensions = _extensions
         };
         foreach (var processor in _configurationPostProcessors)

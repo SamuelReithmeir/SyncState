@@ -159,6 +159,7 @@ internal class CollectionPropertyBuilder<TState, TEntry, TKey> :
             OnRemoveEventEmitterConfigurations = _onRemoveEventEmitterConfigurations,
             OnUpdateEventEmitterConfigurations = _onUpdateEventEmitterConfigurations,
             KeySelector = _keySelector,
+            InterceptorTypes = InterceptorTypes,
             Extensions = Extensions
         };
 

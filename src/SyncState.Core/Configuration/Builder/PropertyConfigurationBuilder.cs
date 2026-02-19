@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SyncState.Configuration.Interfaces;
 using SyncState.Configuration.InternalInterfaces;
 using SyncState.Enums;
+using SyncState.Interfaces.Interceptors;
 using SyncState.Interfaces.Managers;
 using SyncState.Models.Configuration;
 using SyncState.Models.Configuration.EventEmitters;
@@ -29,6 +30,7 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
     protected readonly Dictionary<Type, object> Extensions = new();
     protected readonly List<Action<PropertyConfiguration<TProperty>>> ConfigurationPostProcessors = [];
     protected readonly List<Action> BuildActions = [];
+    protected readonly List<Type> InterceptorTypes = [];
     protected IEqualityComparer<TProperty>? EqualityComparer;
 
 
@@ -179,6 +181,16 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
         return this;
     }
 
+    public IPropertyConfigurationBuilder<TState, TProperty> WithInterceptor<TInterceptor>() where TInterceptor : class, IPropertyInterceptor<TProperty>
+    {
+        InterceptorTypes.Add(typeof(TInterceptor));
+        ParentBuilder.GetSyncStateBuilder().AddServiceCollectionProcessor(services =>
+        {
+            services.AddTransient<IPropertyInterceptor<TProperty>, TInterceptor>();
+        });
+        return this;
+    }
+
     public IPropertyConfigurationBuilder<TState, TProperty> AddExtension<TExtension>(TExtension extension)
         where TExtension : class
     {
@@ -230,6 +242,7 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
             EqualityComparer = equalityComparer,
             CommandHandlerConfigurations = CommandHandlers,
             EventEmitters = EventEmitters,
+            InterceptorTypes = InterceptorTypes,
             Extensions = Extensions
         };
 

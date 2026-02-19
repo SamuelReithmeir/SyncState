@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using SyncState.Interfaces.Interceptors;
 
 namespace SyncState.Configuration.Interfaces;
 
@@ -44,4 +45,13 @@ public interface IStateConfigurationBuilder<TState> where TState : class
     /// <returns>The state configuration builder for method chaining.</returns>
     IStateConfigurationBuilder<TState> WithStateManager<TStateManager>()
         where TStateManager : class;
+
+    /// <summary>
+    /// add an interceptor which will get called on relevant calls to this state manager
+    /// instance will get resolved from command digestion cycle scope
+    /// </summary>
+    /// <typeparam name="TInterceptor"></typeparam>
+    /// <returns></returns>
+    IStateConfigurationBuilder<TState> WithInterceptor<TInterceptor>()
+        where TInterceptor : class,IStateInterceptor<TState>;
 }
