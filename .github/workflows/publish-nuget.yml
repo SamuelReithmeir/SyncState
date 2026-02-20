@@ -20,6 +20,7 @@ jobs:
           - SyncState.Abstractions
           - SyncState.Core
           - SyncState.EntityFrameworkCore
+          - SyncState.ErrorHandling
           - SyncState.OptionsMonitor
           - SyncState.ReloadInterval
           - SyncState.SignalR

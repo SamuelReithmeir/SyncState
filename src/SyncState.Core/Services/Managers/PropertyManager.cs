@@ -94,7 +94,7 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
                 interceptor => interceptor.InitializeAsync
             );
 
-        await pipeline(new PropertyInitializationContext<TProperty>(this), cancellationToken);
+        await pipeline(new PropertyInitializationContext<TProperty>(this, Configuration), cancellationToken);
     }
     public virtual async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
     {
@@ -144,7 +144,7 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
                     interceptor => interceptor.HandleCommandAsync
                 );
 
-        await pipeline(new PropertyCommandContext<TProperty, TCommand>(command, this), cancellationToken);
+        await pipeline(new PropertyCommandContext<TProperty, TCommand>(command, this, Configuration), cancellationToken);
     }
 
     public async Task HandleCommandAsyncImpl<TCommand>(TCommand command, CancellationToken cancellationToken)

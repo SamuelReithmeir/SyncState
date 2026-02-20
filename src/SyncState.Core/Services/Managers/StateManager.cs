@@ -52,7 +52,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
                 interceptor => interceptor.InitializeAsync
             );
         
-        await pipeline(new StateInitializationContext<TState>(this), cancellationToken);
+        await pipeline(new StateInitializationContext<TState>(this, _stateConfiguration), cancellationToken);
     }
 
     public async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
@@ -140,7 +140,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
                 interceptor => interceptor.HandleCommandAsync
             );
         
-        await pipeline(new StateCommandContext<TState,TCommand>(command,this), cancellationToken);
+        await pipeline(new StateCommandContext<TState, TCommand>(command, this, _stateConfiguration), cancellationToken);
     }
     public async Task HandleCommandAsyncImpl<TCommand>(TCommand command, CancellationToken cancellationToken = default)
         where TCommand : notnull
