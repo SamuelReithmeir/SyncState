@@ -2,7 +2,6 @@
 using SyncState.Configuration.Interfaces;
 using SyncState.Configuration.InternalInterfaces;
 using SyncState.ErrorHandling.Interceptors;
-using SyncState.Interfaces.Interceptors;
 
 namespace SyncState.ErrorHandling;
 
@@ -51,7 +50,7 @@ public static class ErrorHandlingExtensions
         // Register the interceptor with DI
         internalBuilder.GetStateBuilder().GetSyncStateBuilder().AddServiceCollectionProcessor(services =>
         {
-            services.AddTransient<IPropertyInterceptor<TProperty>, RetryPropertyInterceptor<TProperty>>();
+            services.AddTransient<RetryPropertyInterceptor<TProperty>>();
         });
 
         // Add the interceptor using the standard method
@@ -125,6 +124,22 @@ public static class ErrorHandlingExtensions
         Func<IServiceProvider, TProperty> fallbackProvider)
         where TState : class
     {
+        return builder.WithFallback(new FallbackExtension<TProperty> { FallbackProvider = (sp,_)=>fallbackProvider(sp) });
+    }
+
+    /// <summary>
+    /// Configures the property to use a fallback value based on the exception when initialization or command handling fails.
+    /// </summary>
+    /// <param name="builder">The property configuration builder.</param>
+    /// <param name="fallbackProvider">Function to create the fallback value from the service provider and exception.</param>
+    /// <typeparam name="TState">The type of state.</typeparam>
+    /// <typeparam name="TProperty">The type of property.</typeparam>
+    /// <returns>The property configuration builder for method chaining.</returns>
+    public static IPropertyConfigurationBuilder<TState, TProperty> WithFallback<TState, TProperty>(
+        this IPropertyConfigurationBuilder<TState, TProperty> builder,
+        Func<IServiceProvider, Exception, TProperty> fallbackProvider)
+        where TState : class
+    {
         return builder.WithFallback(new FallbackExtension<TProperty> { FallbackProvider = fallbackProvider });
     }
 
@@ -170,7 +185,7 @@ public static class ErrorHandlingExtensions
         // Register the interceptor with DI
         internalBuilder.GetStateBuilder().GetSyncStateBuilder().AddServiceCollectionProcessor(services =>
         {
-            services.AddTransient<IPropertyInterceptor<TProperty>, FallbackPropertyInterceptor<TProperty>>();
+            services.AddTransient<FallbackPropertyInterceptor<TProperty>>();
         });
 
         // Add the interceptor using the standard method
@@ -192,7 +207,7 @@ public static class ErrorHandlingExtensions
         Action<FallbackExtension<TProperty>> configure)
         where TState : class
     {
-        var options = new FallbackExtension<TProperty> { FallbackProvider = _ => fallbackValue };
+        var options = new FallbackExtension<TProperty> { FallbackProvider = (_,_) => fallbackValue };
         configure(options);
         return builder.WithFallback(options);
     }
@@ -243,6 +258,21 @@ public static class ErrorHandlingExtensions
         Func<IServiceProvider, TState> fallbackProvider)
         where TState : class
     {
+        return builder.WithFallback(new FallbackExtension<TState> { FallbackProvider = (sp,_)=>fallbackProvider(sp) });
+    }
+
+    /// <summary>
+    /// Configures the state to use a fallback value based on the exception when initialization or command handling fails.
+    /// </summary>
+    /// <param name="builder">The state configuration builder.</param>
+    /// <param name="fallbackProvider">Function to create the fallback state from the service provider and exception.</param>
+    /// <typeparam name="TState">The type of state.</typeparam>
+    /// <returns>The state configuration builder for method chaining.</returns>
+    public static IStateConfigurationBuilder<TState> WithFallback<TState>(
+        this IStateConfigurationBuilder<TState> builder,
+        Func<IServiceProvider, Exception, TState> fallbackProvider)
+        where TState : class
+    {
         return builder.WithFallback(new FallbackExtension<TState> { FallbackProvider = fallbackProvider });
     }
 
@@ -286,7 +316,7 @@ public static class ErrorHandlingExtensions
         // Register the interceptor with DI
         internalBuilder.GetSyncStateBuilder().AddServiceCollectionProcessor(services =>
         {
-            services.AddTransient<IStateInterceptor<TState>, FallbackStateInterceptor<TState>>();
+            services.AddTransient<FallbackStateInterceptor<TState>>();
         });
 
         // Add the interceptor using the standard method
@@ -307,7 +337,7 @@ public static class ErrorHandlingExtensions
         Action<FallbackExtension<TState>> configure)
         where TState : class
     {
-        var options = new FallbackExtension<TState> { FallbackProvider = _ => fallbackValue };
+        var options = new FallbackExtension<TState> { FallbackProvider = (_,_) => fallbackValue };
         configure(options);
         return builder.WithFallback(options);
     }

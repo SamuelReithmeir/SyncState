@@ -68,9 +68,9 @@ public class FallbackPropertyInterceptor<TProperty> : IPropertyInterceptor<TProp
             var serviceProvider = SyncStateService.CurrentExecutionServiceProvider.Value
                 ?? throw new InvalidOperationException("No service provider available for fallback");
 
-            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider);
+            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider,ex);
             
-            if (context.PropertyManager is IPropertyManager<TProperty> propertyManager)
+            if (context.PropertyManager is { } propertyManager)
             {
                 propertyManager.SetValue(fallbackValue);
             }
@@ -123,9 +123,9 @@ public class FallbackPropertyInterceptor<TProperty> : IPropertyInterceptor<TProp
             var serviceProvider = SyncStateService.CurrentExecutionServiceProvider.Value
                 ?? throw new InvalidOperationException("No service provider available for fallback");
 
-            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider);
+            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider,ex);
             
-            if (context.PropertyManager is IPropertyManager<TProperty> propertyManager)
+            if (context.PropertyManager is { } propertyManager)
             {
                 propertyManager.SetValue(fallbackValue);
             }

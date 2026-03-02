@@ -66,7 +66,7 @@ public class FallbackStateInterceptor<TState> : IStateInterceptor<TState> where 
             var serviceProvider = SyncStateService.CurrentExecutionServiceProvider.Value
                 ?? throw new InvalidOperationException("No service provider available for fallback");
 
-            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider);
+            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider,ex);
             context.StateManager.SetValue(fallbackValue);
         }
     }
@@ -117,7 +117,7 @@ public class FallbackStateInterceptor<TState> : IStateInterceptor<TState> where 
             var serviceProvider = SyncStateService.CurrentExecutionServiceProvider.Value
                 ?? throw new InvalidOperationException("No service provider available for fallback");
 
-            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider);
+            var fallbackValue = fallbackExtension.FallbackProvider(serviceProvider,ex);
             context.StateManager.SetValue(fallbackValue);
         }
     }
