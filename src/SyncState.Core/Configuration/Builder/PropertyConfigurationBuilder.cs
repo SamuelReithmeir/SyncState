@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using SyncState.Configuration.Builder.Common;
 using SyncState.Configuration.Interfaces;
 using SyncState.Configuration.InternalInterfaces;
 using SyncState.Enums;
@@ -38,6 +39,8 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
     {
         ParentBuilder = parentBuilder;
         PropertyInfo = propertyInfo;
+        
+        this.AddDefaultCommandHandlers();
     }
 
     public IPropertyConfigurationBuilder<TState, TProperty> GatherFrom<TService>(Func<TService, TProperty> gatherer)
