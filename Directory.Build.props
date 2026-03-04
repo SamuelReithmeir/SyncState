@@ -2,7 +2,7 @@
   <!-- Central version management for all SyncState packages -->
   <PropertyGroup>
     <!-- Version Configuration -->
-    <VersionPrefix>0.2.1</VersionPrefix>
+    <VersionPrefix>0.2.2</VersionPrefix>
     <VersionSuffix></VersionSuffix>
     <!-- Leave empty for release builds, or set to 'alpha.1', 'beta.1', etc. for pre-releases -->
     
@@ -30,8 +30,17 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
     <!-- CS1591: Missing XML comment for publicly visible type or member -->
     <!-- Remove this once all public APIs are documented (already done!) -->
-    
-    <!-- Source Link Configuration (for better debugging experience) -->
+
+    <!-- Debugging Configuration (for local development) -->
+    <DebugType>embedded</DebugType>
+    <!-- embedded: PDB symbols embedded in DLL for seamless debugging -->
+    <DebugSymbols>true</DebugSymbols>
+    <EmbedAllSources>true</EmbedAllSources>
+    <!-- Embeds all source files in PDB for step-through debugging -->
+    <ContinuousIntegrationBuild Condition="'$(CI)' == ''">false</ContinuousIntegrationBuild>
+    <!-- Disable deterministic paths for local dev to enable proper debugging -->
+
+    <!-- Source Link Configuration (for published packages) -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
