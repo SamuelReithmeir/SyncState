@@ -155,6 +155,13 @@ public class SyncStateService : IInternalSyncStateService
     {
         await using var scope = _rootServiceProvider.CreateAsyncScope();
         CurrentExecutionServiceProvider.Value = scope.ServiceProvider;
+
+        //execute configured init actions
+        foreach (var initAction in _configuration.InitActions)
+        {
+            await initAction(_rootServiceProvider, cancellationToken);
+        }
+        
         //init state managers
         foreach (var stateConfiguration in _configuration.StateConfigurations)
         {
@@ -163,12 +170,6 @@ public class SyncStateService : IInternalSyncStateService
             _stateManagersByType.TryAdd(stateConfiguration.StateType, stateManager);
             _stateManagersById.TryAdd(stateConfiguration.Id, stateManager);
             await stateManager.InitializeAsync(cancellationToken);
-        }
-
-        //execute configured init actions
-        foreach (var initAction in _configuration.InitActions)
-        {
-            await initAction(_rootServiceProvider, cancellationToken);
         }
     }
 
