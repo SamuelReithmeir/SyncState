@@ -32,8 +32,8 @@
     <!-- Remove this once all public APIs are documented (already done!) -->
 
     <!-- Debugging Configuration (for local development) -->
-    <DebugType>embedded</DebugType>
-    <!-- embedded: PDB symbols embedded in DLL for seamless debugging -->
+    <DebugType>portable</DebugType>
+    <!-- portable: Generates separate PDB files for NuGet symbol packages -->
     <DebugSymbols>true</DebugSymbols>
     <EmbedAllSources>true</EmbedAllSources>
     <!-- Embeds all source files in PDB for step-through debugging -->
