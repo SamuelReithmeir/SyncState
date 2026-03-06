@@ -56,6 +56,8 @@ public class SyncCommandService : ISyncCommandService
         {
             await bufferedNotification.DispatchAsync(_syncStateService, commandDigestCycle, cancellationToken);
         }
+        
+        await _syncStateService.CommitCommandDigestCycleAsync(commandDigestCycle, cancellationToken);
 
         _bufferedCommands.Clear();
         _bufferingEnabled = false;
