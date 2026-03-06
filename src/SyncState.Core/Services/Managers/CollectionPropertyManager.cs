@@ -47,12 +47,7 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
 
     public override void SetValue(IEnumerable<TEntry> newValue)
     {
-        _pendingUpserts = newValue.Where(entry =>
-        {
-            var key = _keySelector(entry);
-            return !_value.TryGetValue(key, out var existingEntry) ||
-                   !_configuration.EntryEqualityComparer.Equals(existingEntry, entry);
-        }).ToDictionary(_keySelector);
+        _pendingUpserts = newValue.ToDictionary(_keySelector);
         _pendingRemovals = _value.Keys.Except(_pendingUpserts.Keys).ToHashSet();
         _cachedPendingValue = null; // Invalidate cached pending value
     }
@@ -113,19 +108,22 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
 
         foreach (var pendingUpsert in _pendingUpserts)
         {
-            var isUpdate = _value.TryGetValue(pendingUpsert.Key, out var oldValue);
-            if (isUpdate)
+            var hasOldValue = _value.TryGetValue(pendingUpsert.Key, out var oldValue);
+            var isEqual = _configuration.EntryEqualityComparer.Equals(oldValue, pendingUpsert.Value);
+            if (!hasOldValue)
             {
-                foreach (var updateEventEmitterConfiguration in _configuration.OnUpdateEventEmitterConfigurations)
-                {
-                    updateEventEmitterConfiguration.EmitEvent(oldValue!, pendingUpsert.Value, SyncEventHub);
-                }
-            }
-            else
-            {
+                //added
                 foreach (var addEventEmitterConfiguration in _configuration.OnAddEventEmitterConfigurations)
                 {
                     addEventEmitterConfiguration.EmitEvent(pendingUpsert.Value, SyncEventHub);
+                }
+            }
+            else if (!isEqual)
+            {
+                //updated
+                foreach (var updateEventEmitterConfiguration in _configuration.OnUpdateEventEmitterConfigurations)
+                {
+                    updateEventEmitterConfiguration.EmitEvent(oldValue!, pendingUpsert.Value, SyncEventHub);
                 }
             }
         }
