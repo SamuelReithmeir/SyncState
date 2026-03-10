@@ -216,7 +216,7 @@ public class DefaultPropertyManager<TProperty> : BasePropertyManager<TProperty>
         {
             foreach (var eventEmitterConfiguration in Configuration.EventEmitters)
             {
-                eventEmitterConfiguration.EmitEvent(_value, newValue, SyncEventHub);
+                eventEmitterConfiguration.EmitEvent(newValue, _value, SyncEventHub);
             }
 
             _value = newValue;

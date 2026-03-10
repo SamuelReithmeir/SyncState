@@ -102,7 +102,7 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
         {
             foreach (var removeEventEmitterConfiguration in _configuration.OnRemoveEventEmitterConfigurations)
             {
-                removeEventEmitterConfiguration.EmitEvent(_value[pendingRemoval], pendingRemoval, SyncEventHub);
+                removeEventEmitterConfiguration.EmitEvent(pendingRemoval, _value[pendingRemoval], SyncEventHub);
             }
         }
 
@@ -123,7 +123,7 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
                 //updated
                 foreach (var updateEventEmitterConfiguration in _configuration.OnUpdateEventEmitterConfigurations)
                 {
-                    updateEventEmitterConfiguration.EmitEvent(oldValue!, pendingUpsert.Value, SyncEventHub);
+                    updateEventEmitterConfiguration.EmitEvent(pendingUpsert.Value, oldValue!, SyncEventHub);
                 }
             }
         }
