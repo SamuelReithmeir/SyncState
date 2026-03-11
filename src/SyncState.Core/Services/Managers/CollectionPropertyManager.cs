@@ -28,27 +28,44 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
     public void SetEntry(TEntry entry)
     {
         var key = _keySelector(entry);
-        if (_pendingRemovals.Remove(key))
+        var wasMarkedForRemoval = _pendingRemovals.Remove(key);
+
+        // Check against the effective current value for this key:
+        // pending upsert takes priority over committed value.
+        if (_pendingUpserts.TryGetValue(key, out var existingUpsertEntry))
         {
-            _cachedPendingValue = null; // Invalidate cached pending value
+            if (_configuration.EntryEqualityComparer.Equals(existingUpsertEntry, entry))
+            {
+                if (wasMarkedForRemoval)
+                {
+                    _cachedPendingValue = null; // Removal was undone, invalidate cache
+                }
+                return; // No change relative to pending upsert, skip
+            }
+        }
+        else if (!wasMarkedForRemoval &&
+                 _value.TryGetValue(key, out var existingEntry) &&
+                 _configuration.EntryEqualityComparer.Equals(existingEntry, entry))
+        {
+            return; // No change relative to committed value, skip
         }
 
-        if (_pendingUpserts.TryGetValue(key, out var existingUpsertEntry) &&
-            _configuration.EntryEqualityComparer.Equals(
-                existingUpsertEntry, entry) ||
-            _value.TryGetValue(key, out var existingEntry) &&
-            _configuration.EntryEqualityComparer.Equals(existingEntry, entry))
-        {
-            return; // No change, skip
-        }
         _cachedPendingValue = null; // Invalidate cached pending value
         _pendingUpserts[key] = entry;
     }
 
     public override void SetValue(IEnumerable<TEntry> newValue)
     {
-        _pendingUpserts = newValue.ToDictionary(_keySelector);
-        _pendingRemovals = _value.Keys.Except(_pendingUpserts.Keys).ToHashSet();
+        var incoming = newValue.ToDictionary(_keySelector);
+
+        _pendingRemovals = _value.Keys.Except(incoming.Keys).ToHashSet();
+
+        // Only mark entries as upserts if they actually differ from the committed value
+        _pendingUpserts = incoming
+            .Where(kvp => !_value.TryGetValue(kvp.Key, out var existing) ||
+                          !_configuration.EntryEqualityComparer.Equals(existing, kvp.Value))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
         _cachedPendingValue = null; // Invalidate cached pending value
     }
 
@@ -108,9 +125,7 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
 
         foreach (var pendingUpsert in _pendingUpserts)
         {
-            var hasOldValue = _value.TryGetValue(pendingUpsert.Key, out var oldValue);
-            var isEqual = _configuration.EntryEqualityComparer.Equals(oldValue, pendingUpsert.Value);
-            if (!hasOldValue)
+            if (!_value.TryGetValue(pendingUpsert.Key, out var oldValue))
             {
                 //added
                 foreach (var addEventEmitterConfiguration in _configuration.OnAddEventEmitterConfigurations)
@@ -118,12 +133,12 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
                     addEventEmitterConfiguration.EmitEvent(pendingUpsert.Value, SyncEventHub);
                 }
             }
-            else if (!isEqual)
+            else
             {
-                //updated
+                //updated (equality already verified at write time by SetEntry/SetValue)
                 foreach (var updateEventEmitterConfiguration in _configuration.OnUpdateEventEmitterConfigurations)
                 {
-                    updateEventEmitterConfiguration.EmitEvent(pendingUpsert.Value, oldValue!, SyncEventHub);
+                    updateEventEmitterConfiguration.EmitEvent(pendingUpsert.Value, oldValue, SyncEventHub);
                 }
             }
         }
@@ -141,10 +156,20 @@ public class CollectionPropertyManager<TEntry, TKey> : BasePropertyManager<IEnum
 
     public void RemoveEntry(TKey key)
     {
-        if (_value.ContainsKey(key) || _pendingUpserts.ContainsKey(key))
+        if (_pendingRemovals.Contains(key))
+        {
+            return; // Already marked for removal
+        }
+
+        var wasPendingUpsert = _pendingUpserts.Remove(key);
+
+        if (_value.ContainsKey(key))
         {
             _pendingRemovals.Add(key);
-            _pendingUpserts.Remove(key);
+            _cachedPendingValue = null; // Invalidate cached pending value
+        }
+        else if (wasPendingUpsert)
+        {
             _cachedPendingValue = null; // Invalidate cached pending value
         }
     }
