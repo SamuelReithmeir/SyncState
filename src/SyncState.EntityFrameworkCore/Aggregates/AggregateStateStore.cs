@@ -31,7 +31,25 @@ public class AggregateStateStore : IAggregateStateStore
         AggregateState state) where TKey : struct
     {
         var dict = GetAggregateDictionary<TAggregate, TAggregateRoot, TKey>();
-        dict[key] = (rootEntity, key, state);
+        AggregateState? currentState = dict.TryGetValue(key, out var existing) ? existing.Item3 : null;
+        switch (currentState, state)
+        {
+            case (null, _):
+                dict[key] = (rootEntity, key, state);
+                break;
+            case (_, AggregateState.AggregateParticipantChanged):
+                dict[key] = dict[key];//every other state is more important than AggregateParticipantChanged, so we just keep the existing state
+                break;
+            case (AggregateState.Added, AggregateState.Updated):
+                dict[key] = (rootEntity, key, AggregateState.Added);//if it's added, we keep it as added even if it's updated later, because it's still a new aggregate
+                break;
+            case (AggregateState.Added, AggregateState.Deleted):
+                dict.Remove(key);//if it's added and then deleted before dispatching, we can just remove it from the dictionary, because it doesn't need to be synchronized
+                break;
+            default:
+                dict[key] = (rootEntity, key, state);
+                break;
+        }
     }
 
     public IEnumerable<(TAggregateRoot, TKey, AggregateState)> GetAggregateRoots<TAggregate, TAggregateRoot, TKey>()

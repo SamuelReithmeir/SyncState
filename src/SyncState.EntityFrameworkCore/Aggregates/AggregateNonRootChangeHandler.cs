@@ -39,7 +39,7 @@ public class
 
         var rootsSelector = _configuration.GetAggregateRootsSelector<TAggregate, TAggregateRoot, TKey, TParticipant>();
         var aggregateRootKeys = rootsSelector(participant, typedEntry, changeTracker);
-        foreach (var rootKey in aggregateRootKeys)
+        foreach (var rootKey in aggregateRootKeys.Distinct())
         {
             if (changeTracker.Context.Find<TAggregateRoot>(rootKey) is not { } rootEntity)
             {

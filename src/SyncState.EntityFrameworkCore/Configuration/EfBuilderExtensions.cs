@@ -53,8 +53,6 @@ public static class EfBuilderExtensions
         internalBuilder.AddServiceCollectionProcessor(sc =>
         {
             sc.AddScoped<SyncStateDbContextInterceptor>();
-            sc.AddScoped<IDbTransactionInterceptor>(sp => sp.GetRequiredService<SyncStateDbContextInterceptor>());
-            sc.AddScoped<ISaveChangesInterceptor>(sp => sp.GetRequiredService<SyncStateDbContextInterceptor>());
         });
         return builder;
     }
