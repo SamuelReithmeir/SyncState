@@ -160,9 +160,9 @@ internal class PropertyConfigurationBuilder<TState, TProperty> : PropertyConfigu
     {
         EventEmitters.Add(new EventEmitterConfiguration<TProperty>
         {
-            EmitEvent = (property, oldProperty, eventService) =>
+            EmitEvent = (newProperty, oldProperty, eventService) =>
             {
-                if( eventFactory(property, oldProperty) is { } evt)
+                if( eventFactory(newProperty, oldProperty) is { } evt)
                 {
                     eventService.QueueEvent(evt);
                 }

@@ -13,6 +13,10 @@ public class CollectionOnAddEventEmitterConfiguration<TEntry,TKey> : CollectionE
 public class CollectionOnUpdateEventEmitterConfiguration<TEntry, TKey> : CollectionEventEmitterConfiguration<TEntry, TKey>
     where TKey : struct
 {
+    /// <summary>
+    /// Defines the event to be emitted when an entry is updated.
+    /// Parameters: (newEntry, oldEntry, syncEventHub).
+    /// </summary>
     public required Action<TEntry, TEntry, IInternalSyncEventHub> EmitEvent { get; init; }
 }
 

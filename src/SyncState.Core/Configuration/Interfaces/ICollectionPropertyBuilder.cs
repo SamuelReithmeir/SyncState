@@ -93,7 +93,7 @@ public interface ICollectionPropertyBuilder<TState, TEntry, TKey>
     /// <summary>
     /// Configure an event to be emitted when an entry is updated in the collection.
     /// </summary>
-    /// <param name="eventFactory">Takes the old and new entry values and returns an event to emit, or null to emit nothing.</param>
+    /// <param name="eventFactory">Takes the new and old entry values and returns an event to emit, or null to emit nothing.</param>
     /// <typeparam name="TEvent">The type of event to emit.</typeparam>
     ICollectionPropertyBuilder<TState, TEntry, TKey> EmitOnUpdate<TEvent>(Func<TEntry, TEntry, TEvent?> eventFactory) where TEvent : notnull;
 

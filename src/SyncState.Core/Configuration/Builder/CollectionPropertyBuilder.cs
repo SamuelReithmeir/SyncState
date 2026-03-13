@@ -70,9 +70,9 @@ internal class CollectionPropertyBuilder<TState, TEntry, TKey> :
     {
         _onUpdateEventEmitterConfigurations.Add(new CollectionOnUpdateEventEmitterConfiguration<TEntry, TKey>
         {
-            EmitEvent = (oldEntry, newEntry, eventService) =>
+            EmitEvent = (newEntry, oldEntry, eventService) =>
             {
-                if (eventFactory(oldEntry, newEntry) is { } evt)
+                if (eventFactory(newEntry, oldEntry) is { } evt)
                 {
                     eventService.QueueEvent(evt);
                 }
@@ -84,7 +84,7 @@ internal class CollectionPropertyBuilder<TState, TEntry, TKey> :
     public ICollectionPropertyBuilder<TState, TEntry, TKey> EmitOnUpdate<TEvent>(Func<TEntry, TEvent?> eventFactory)
         where TEvent : notnull
     {
-        return EmitOnUpdate<TEvent>((_, newEntry) => eventFactory(newEntry));
+        return EmitOnUpdate<TEvent>((newEntry, _) => eventFactory(newEntry));
     }
 
     public ICollectionPropertyBuilder<TState, TEntry, TKey> EmitOnRemove<TEvent>(Func<TEntry, TEvent?> eventFactory)
