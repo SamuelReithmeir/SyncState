@@ -34,11 +34,6 @@ public class ApplicationStateHub : Hub<IApplicationStateClient>
         await base.OnDisconnectedAsync(exception);
     }
 
-    public int TestNumber()
-    {
-        return 123;
-    }
-
     public async IAsyncEnumerable<List<ApplicationStateEvent>> GetApplicationState(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {

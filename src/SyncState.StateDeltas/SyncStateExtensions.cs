@@ -6,7 +6,7 @@ namespace SyncState.StateDeltas;
 /// <summary>
 /// Extension methods for accessing state delta functionality on ISyncStateService.
 /// </summary>
-public static class SyncStateExtensions
+public static class SyncStateDeltaServiceExtensions
 {
     /// <summary>
     /// Gets an initial state and an async enumerable of delta objects for efficient state synchronization.

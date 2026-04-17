@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using SyncState.Interfaces;
 using SyncState.Models.Configuration;
 
@@ -10,12 +11,14 @@ public class ReloadBackgroundWorker : BackgroundService
 {
     private readonly SyncStateConfiguration _syncStateConfiguration;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ILogger<ReloadBackgroundWorker> _logger;
 
     public ReloadBackgroundWorker(SyncStateConfiguration syncStateConfiguration,
-        IServiceScopeFactory serviceScopeFactory)
+        IServiceScopeFactory serviceScopeFactory, ILogger<ReloadBackgroundWorker> logger)
     {
         _syncStateConfiguration = syncStateConfiguration;
         _serviceScopeFactory = serviceScopeFactory;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,8 +38,7 @@ public class ReloadBackgroundWorker : BackgroundService
                 Interval = interval
             }, stoppingToken);
             stopwatch.Stop();
-            Console.WriteLine(
-                $"[ReloadBackgroundWorker] Executed TimedReloadCommand for interval {interval} in {stopwatch.ElapsedMilliseconds} ms");
+            _logger.LogDebug("Executed TimedReloadCommand for interval {Interval} in {ElapsedMs} ms", interval, stopwatch.ElapsedMilliseconds);
         }
     }
 

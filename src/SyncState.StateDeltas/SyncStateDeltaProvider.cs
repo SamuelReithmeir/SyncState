@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.JsonDiffPatch;
+using Microsoft.Extensions.Logging;
 using SyncState.Interfaces;
 using SyncState.Models.Configuration;
 using SyncState.Models.Configuration.Extensions;
@@ -11,10 +12,12 @@ public class SyncStateDeltaProvider : ISyncStateDeltaProvider
     private readonly ISyncStateService _syncStateService;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
     private readonly JsonDiffOptions _jsonDiffOptions;
+    private readonly ILogger<SyncStateDeltaProvider> _logger;
 
-    public SyncStateDeltaProvider(ISyncStateService syncStateService, SyncStateConfiguration configuration)
+    public SyncStateDeltaProvider(ISyncStateService syncStateService, SyncStateConfiguration configuration, ILogger<SyncStateDeltaProvider> logger)
     {
         _syncStateService = syncStateService;
+        _logger = logger;
         if (configuration.GetExtension<JsonSerializationExtension>() is not
             { JsonSerializerOptions: var serializerOptions })
         {
@@ -56,12 +59,11 @@ public class SyncStateDeltaProvider : ISyncStateDeltaProvider
             var nextJson = JsonSerializer.SerializeToNode(stateEnumerator.Current, _jsonSerializerOptions);
             var delta = currentJson.Diff(nextJson, _jsonDiffOptions);
             stopwatch.Stop();
-            Console.WriteLine(
-                $"[SyncStateDeltaProvider] Computed delta for {typeof(TState).Name} in {stopwatch.ElapsedMilliseconds} ms");
+            _logger.LogDebug("Computed delta for {StateName} in {ElapsedMs} ms", typeof(TState).Name, stopwatch.ElapsedMilliseconds);
             currentJson = nextJson;
             yield return new StateDelta
             {
-                Delta = delta
+                Patch = delta
             };
         }
     }
