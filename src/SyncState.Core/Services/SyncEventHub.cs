@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using System.Collections.Concurrent;
+using System.Threading.Channels;
 using SyncState.InternalInterfaces;
 using SyncState.Models;
 
@@ -6,14 +7,14 @@ namespace SyncState.Services;
 
 public class SyncEventHub : IInternalSyncEventHub
 {
-    private readonly Dictionary<Type, IEventHub> _eventHubs = [];
+    private readonly ConcurrentDictionary<Type, IEventHub> _eventHubs = [];
     
     public void QueueEvent<TEvent>(TEvent syncEvent) where TEvent : notnull
     {
         // Queue the event in all event hubs that are compatible with TEvent
         foreach (var eventHub in _eventHubs.Where(kvp => kvp.Key.IsAssignableFrom(typeof(TEvent)))
                      .Select(kvp => kvp.Value)
-                     .Cast<IEventInHub<TEvent>>())
+                     .Cast<IEventInHub<TEvent>>().ToList())
         {
             eventHub.QueueEvent(syncEvent);
         }
@@ -37,12 +38,7 @@ public class SyncEventHub : IInternalSyncEventHub
 
     public ChannelReader<EventBatch<TEvent>> GetEventStream<TEvent>(CancellationToken cancellationToken = default) where TEvent : notnull
     {
-        if(!_eventHubs.TryGetValue(typeof(TEvent), out var eventHubObj))
-        {
-            eventHubObj = new EventHub<TEvent>();
-            _eventHubs[typeof(TEvent)] = eventHubObj;
-        }
-        var eventHub = (IEventOutHub<TEvent>)eventHubObj;
+        var eventHub = (IEventOutHub<TEvent>)_eventHubs.GetOrAdd(typeof(TEvent), _ => new EventHub<TEvent>());
         return eventHub.GetEventStream(cancellationToken);
     }
 }
