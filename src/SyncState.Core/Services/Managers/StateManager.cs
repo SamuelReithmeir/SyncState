@@ -20,7 +20,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
     private readonly ConcurrentDictionary<Type, List<Guid>> _commandTypeRegisteredPropertyManagers = [];
 
     private readonly ConcurrentBag<Channel<TState>> _stateChannels = [];
-    private TState _currentState = null!;
+    private TState? _currentState;
 
     public StateManager(StateConfiguration<TState> stateConfiguration, IServiceProvider rootServiceProvider)
     {
@@ -40,6 +40,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         {
             throw new InvalidOperationException("No service provider available to initialize interceptors");
         }
+
         var interceptors = _stateConfiguration.InterceptorTypes
             .Select(type => serviceProvider.GetRequiredService(type))
             .OfType<IStateInterceptor<TState>>()
@@ -51,8 +52,9 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
                 (_, ct) => InitializeAsyncImpl(ct),
                 interceptor => interceptor.InitializeAsync
             );
-        
+
         await pipeline(new StateInitializationContext<TState>(this, _stateConfiguration), cancellationToken);
+        await CommitChangesAsync(cancellationToken);
     }
 
     public async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
@@ -66,8 +68,10 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         }
 
         //load initial state
-        var initialState = await LoadInitialStateAsync(cancellationToken);
-        HandleStateChange(initialState);
+        foreach (var propertyManager in _propertyManagers.Values)
+        {
+            await propertyManager.InitializeAsync(cancellationToken);
+        }
     }
 
     public async Task<bool> CommitChangesAsync(CancellationToken cancellationToken = default)
@@ -78,7 +82,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
             anyChanges |= await propertyManager.CommitChangesAsync(cancellationToken);
         }
 
-        if (!anyChanges)
+        if (!anyChanges && _currentState != null)
         {
             return false;
         }
@@ -117,7 +121,6 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
     public async Task HandleCommandAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
         where TCommand : notnull
     {
-        
         if (_stateConfiguration.InterceptorTypes.Count == 0)
         {
             await HandleCommandAsyncImpl(command, cancellationToken);
@@ -128,20 +131,24 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         {
             throw new InvalidOperationException("No service provider available to initialize interceptors");
         }
+
         var interceptors = _stateConfiguration.InterceptorTypes
             .Select(type => serviceProvider.GetRequiredService(type))
             .OfType<IStateInterceptor<TState>>()
             .ToList();
 
         var pipeline =
-            InterceptorUtils.CreateInterceptorPipeline<IStateInterceptor<TState>, StateCommandContext<TState,TCommand>>(
-                interceptors,
-                (context, ct) => HandleCommandAsyncImpl(context.Command, ct),
-                interceptor => interceptor.HandleCommandAsync
-            );
-        
-        await pipeline(new StateCommandContext<TState, TCommand>(command, this, _stateConfiguration), cancellationToken);
+            InterceptorUtils
+                .CreateInterceptorPipeline<IStateInterceptor<TState>, StateCommandContext<TState, TCommand>>(
+                    interceptors,
+                    (context, ct) => HandleCommandAsyncImpl(context.Command, ct),
+                    interceptor => interceptor.HandleCommandAsync
+                );
+
+        await pipeline(new StateCommandContext<TState, TCommand>(command, this, _stateConfiguration),
+            cancellationToken);
     }
+
     public async Task HandleCommandAsyncImpl<TCommand>(TCommand command, CancellationToken cancellationToken = default)
         where TCommand : notnull
     {
@@ -169,19 +176,6 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         }
     }
 
-    private async Task<TState> LoadInitialStateAsync(CancellationToken cancellationToken)
-    {
-        var instance = Activator.CreateInstance<TState>();
-        //initialize all property managers and apply their values to the state object
-        foreach (var propertyManager in _propertyManagers.Values)
-        {
-            await propertyManager.InitializeAsync(cancellationToken);
-            propertyManager.ApplyToStateObject(instance);
-        }
-
-        return instance;
-    }
-
     private IEnumerable<Guid> GetPropertyManagerIdsForCommandType<TCommand>()
         where TCommand : notnull
     {
@@ -200,11 +194,29 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
 
     public void SetValue(TState newValue)
     {
-        HandleStateChange(newValue);
+        foreach (var propertyConfiguration in _stateConfiguration.Properties)
+        {
+            if (!_propertyManagers.TryGetValue(propertyConfiguration.Id, out var propertyManager))
+                continue;
+
+            var propertyType = propertyConfiguration.PropertyInfo.PropertyType;
+            var propertyValue = propertyConfiguration.PropertyInfo.GetValue(newValue);
+
+            var setValueMethod = propertyManager.GetType().GetMethod("SetValue", [propertyType]);
+            if (setValueMethod != null)
+            {
+                setValueMethod.Invoke(propertyManager, [propertyValue]);
+            }
+        }
     }
 
     public TState GetCurrentValue()
     {
+        if (_currentState == null)
+        {
+            throw new InvalidOperationException("State has not been initialized yet");
+        }
+
         return _currentState;
     }
 }

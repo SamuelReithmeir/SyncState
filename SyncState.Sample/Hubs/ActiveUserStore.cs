@@ -37,6 +37,11 @@ public class ActiveUserStore : IActiveUserStore
 
     public IReadOnlyCollection<string> GetActiveUsers()
     {
+        if (Random.Shared.NextDouble() < 0.5) // Simulate that this method fails 50% of the time to demonstrate failure handling
+        {
+            throw new InvalidOperationException("Simulated failure in GetActiveUsers");
+        }
+
         _lock.EnterReadLock();
         try
         {
@@ -61,4 +66,3 @@ public class ActiveUserStore : IActiveUserStore
         }
     }
 }
-

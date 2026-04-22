@@ -22,6 +22,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\src\SyncState.EntityFrameworkCore\SyncState.EntityFrameworkCore.csproj" />
+      <ProjectReference Include="..\src\SyncState.ErrorHandling\SyncState.ErrorHandling.csproj" />
       <ProjectReference Include="..\src\SyncState.ReloadInterval\SyncState.ReloadInterval.csproj" />
     </ItemGroup>
 

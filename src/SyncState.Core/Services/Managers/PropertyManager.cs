@@ -99,7 +99,6 @@ public abstract class BasePropertyManager<TProperty> : IInternalPropertyManager<
     public virtual async Task InitializeAsyncImpl(CancellationToken cancellationToken = default)
     {
         await ReloadValueAsync(cancellationToken);
-        await CommitChangesAsync(cancellationToken);
     }
 
     public virtual void ApplyToStateObject(object stateObject)

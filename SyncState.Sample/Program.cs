@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SyncState.Configuration;
 using SyncState.EntityFrameworkCore.Configuration;
+using SyncState.ErrorHandling;
 using SyncState.ReloadInterval;
 using SyncState.Sample.Domain;
 using SyncState.Sample.DTOs;
@@ -50,8 +51,13 @@ builder.Services.AddSyncState(config =>
             .GatherFromAsync<SampleDbContext>(async (db, ct) => await db.Orders.Select(x => x.ToDto()).ToListAsync(ct))
             .WithEfCoreProvider()
             .FromEntity<Order>(x => x.Id)
-            .WithAdditionalEntity<OrderItem>(x => (int?)x.OrderId)
+            .WithAdditionalEntity<OrderItem>(x => x.OrderId)
             .WithMapping(x => x.ToDto());
+        state.WithFallback(new ApplicationStateDto
+        {
+            Orders = [],
+            CurrentActiveUserCount = -1
+        });
     });
 });
 

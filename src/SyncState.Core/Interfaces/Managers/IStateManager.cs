@@ -3,7 +3,7 @@
 public interface IStateManager<TState> where TState : class
 {
     /// <summary>
-    /// Sets the value of the state
+    /// Sets the value of all property managers based on the values in the new state
     /// </summary>
     /// <param name="newValue"></param>
     void SetValue(TState newValue);
