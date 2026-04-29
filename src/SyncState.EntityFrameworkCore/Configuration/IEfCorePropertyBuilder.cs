@@ -38,14 +38,14 @@ public interface IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey>
     /// <param name="filter">Expression defining the filter predicate.</param>
     /// <returns>The EF Core collection builder for method chaining.</returns>
     IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithFilter(Expression<Func<TEntity, bool>> filter);
-    
+
     /// <summary>
     /// Configures a synchronous mapping function from entity to DTO.
     /// </summary>
     /// <param name="mapFunc">Function to map from entity to DTO.</param>
     /// <returns>The EF Core collection builder for method chaining.</returns>
     IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithMapping(Func<TEntity, TEntry> mapFunc);
-    
+
     /// <summary>
     /// Configures an asynchronous mapping function from entity to DTO.
     /// </summary>
@@ -92,32 +92,38 @@ public interface IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey>
     /// Adds a secondary entity that participates in the DTO mapping with a direct foreign key reference to the root entity.
     /// </summary>
     /// <param name="rootKeySelector">Function that selects the root key from the additional entity. Should directly access a property as it will be called on EF Core OriginalValues.</param>
+    /// <param name="filter">Optional function to filter if a modified additional entity should trigger a change for the root entity, if null, any modification to the additional entity will trigger a change for the root entity.</param>
     /// <typeparam name="TAdditionalEntity">The type of the additional entity.</typeparam>
     /// <returns>The EF Core collection builder for method chaining.</returns>
     /// <remarks>
     /// The rootKeySelector should directly access a property on the additional entity as it will be called on EF Core OriginalValues.
     /// </remarks>
     IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithDirectAdditionalEntity<TAdditionalEntity>(
-        Func<TAdditionalEntity, TKey?> rootKeySelector) where TAdditionalEntity : class;
+        Func<TAdditionalEntity, TKey?> rootKeySelector, Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
+        where TAdditionalEntity : class;
 
     /// <summary>
     /// Adds a secondary entity that participates in the DTO mapping with a reference to the root entity.
     /// </summary>
     /// <param name="rootKeySelector">Function that selects the root key from the additional entity.</param>
+    /// <param name="filter">Optional function to filter if a modified additional entity should trigger a change for the root entity, if null, any modification to the additional entity will trigger a change for the root entity.</param>
     /// <typeparam name="TAdditionalEntity">The type of the additional entity.</typeparam>
     /// <returns>The EF Core collection builder for method chaining.</returns>
     IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithAdditionalEntity<TAdditionalEntity>(
-        Func<TAdditionalEntity, TKey?> rootKeySelector) where TAdditionalEntity : class;
+        Func<TAdditionalEntity, TKey?> rootKeySelector, Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
+        where TAdditionalEntity : class;
 
     /// <summary>
     /// Adds a secondary entity that participates in the DTO mapping with references to multiple root entities.
     /// </summary>
     /// <param name="rootKeysSelector">Function that selects the root keys from the additional entity.</param>
     /// <param name="originalRootKeysSelector">Optional function to retrieve the original root keys before changes. If null, defaults to using the rootKeysSelector.</param>
+    /// <param name="filter">Optional function to filter if a modified additional entity should trigger a change for the root entity, if null, any modification to the additional entity will trigger a change for the root entity.</param>
     /// <typeparam name="TAdditionalEntity">The type of the additional entity.</typeparam>
     /// <returns>The EF Core collection builder for method chaining.</returns>
     IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithAdditionalEntity<TAdditionalEntity>(
         Func<TAdditionalEntity, IEnumerable<TKey>> rootKeysSelector,
-        Func<EntityEntry<TAdditionalEntity>, ChangeTracker, IEnumerable<TKey>>? originalRootKeysSelector = null)
+        Func<EntityEntry<TAdditionalEntity>, ChangeTracker, IEnumerable<TKey>>? originalRootKeysSelector = null,
+        Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
         where TAdditionalEntity : class;
 }

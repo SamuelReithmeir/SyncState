@@ -7,7 +7,19 @@ public record EfCoreSyncStateExtension
     public bool WaitForTransactionCommit { get; init; } = false;
     public Dictionary<Type, Delegate> EntityKeySelectors { get; init; } = [];
     public Dictionary<Type, Delegate> AggregateRootEntityFilters { get; init; } = [];
-    public Dictionary<(Type aggregateType,Type participantType), Delegate> AggregateParticipantRootsSelectors { get; init; } = [];
+
+    public Dictionary<(Type aggregateType, Type participantType), Delegate> AggregateParticipantRootsSelectors
+    {
+        get;
+        init;
+    } = [];
+
+    public Dictionary<(Type aggregateType, Type participantType), Delegate> AggregateParticipantUpdateFilters
+    {
+        get;
+        init;
+    } = [];
+
     public Dictionary<Type, Delegate> MappingFunctions { get; init; } = [];
     public HashSet<Type> ConfiguredDbContextTypes { get; init; } = [];
 
@@ -36,7 +48,7 @@ public record EfCoreSyncStateExtension
         TAggregate, TAggregateRoot, TKey,
         TParticipant>() where TParticipant : class
     {
-        if (AggregateParticipantRootsSelectors.TryGetValue((typeof(TAggregate),typeof(TParticipant)), out var del))
+        if (AggregateParticipantRootsSelectors.TryGetValue((typeof(TAggregate), typeof(TParticipant)), out var del))
         {
             return (Func<TParticipant, EntityEntry<TParticipant>, ChangeTracker, IEnumerable<TKey>>)del;
         }
@@ -50,6 +62,24 @@ public record EfCoreSyncStateExtension
         where TParticipant : class
     {
         AggregateParticipantRootsSelectors[(typeof(TAggregate), typeof(TParticipant))] = rootsSelector;
+    }
+
+    public Func<EntityEntry<TParticipant>, bool>? GetAggregateParticipantUpdateFilter<
+        TAggregate, TAggregateRoot, TParticipant>() where TParticipant : class
+    {
+        if (AggregateParticipantUpdateFilters.TryGetValue((typeof(TAggregate), typeof(TParticipant)), out var del))
+        {
+            return (Func<EntityEntry<TParticipant>, bool>)del;
+        }
+
+        return null;
+    }
+
+    public void SetAggregateParticipantUpdateFilter<TAggregate, TAggregateRoot, TParticipant>(
+        Func<EntityEntry<TParticipant>, bool> updateFilter)
+        where TParticipant : class
+    {
+        AggregateParticipantUpdateFilters[(typeof(TAggregate), typeof(TParticipant))] = updateFilter;
     }
 
     public Func<TAggregateRoot, IServiceProvider, CancellationToken, Task<TAggregate>> GetMappingFunction<TAggregate,

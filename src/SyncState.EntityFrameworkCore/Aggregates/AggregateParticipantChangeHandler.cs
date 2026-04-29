@@ -8,13 +8,14 @@ using SyncState.Models.Configuration;
 namespace SyncState.EntityFrameworkCore.Aggregates;
 
 public class
-    AggregateNonRootChangeHandler<TAggregate, TAggregateRoot, TParticipant, TKey> : IChangeHandler<TParticipant>
+    AggregateParticipantChangeHandler<TAggregate, TAggregateRoot, TParticipant, TKey> : IChangeHandler<TParticipant>
     where TParticipant : class where TKey : struct where TAggregateRoot : class
 {
     private readonly IAggregateStateStore _aggregateStateStore;
     private readonly EfCoreSyncStateExtension _configuration;
 
-    public AggregateNonRootChangeHandler(IAggregateStateStore aggregateStateStore, SyncStateConfiguration configuration)
+    public AggregateParticipantChangeHandler(IAggregateStateStore aggregateStateStore,
+        SyncStateConfiguration configuration)
     {
         _aggregateStateStore = aggregateStateStore;
         if (configuration.GetExtension<EfCoreSyncStateExtension>() is not { } extension)
@@ -36,6 +37,14 @@ public class
         }
 
         var typedEntry = entityChangeEntry.Entry.Context.Entry((TParticipant)entityChangeEntry.Entry.Entity);
+
+        //if the entry was modified, and there was a filter configured for updates which returns false, we should skip marking the aggregate as changed
+        if (stateUponSaving == EntityState.Modified &&
+            _configuration.GetAggregateParticipantUpdateFilter<TAggregate, TAggregateRoot, TParticipant>() is
+                { } filterFunc && !filterFunc(typedEntry))
+        {
+            return Task.CompletedTask;
+        }
 
         var rootsSelector = _configuration.GetAggregateRootsSelector<TAggregate, TAggregateRoot, TKey, TParticipant>();
         var aggregateRootKeys = rootsSelector(participant, typedEntry, changeTracker);

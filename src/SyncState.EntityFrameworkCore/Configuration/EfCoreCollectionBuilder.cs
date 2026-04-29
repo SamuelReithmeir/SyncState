@@ -40,17 +40,18 @@ public class EfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> :
 
         _extension.SetEntityKeySelector(keySelector.Compile());
         _extension.SetFilterFunction<TEntry, TEntity>(_ => true);
-        
+
         //add commandHandlers
-        collectionBuilder.On<AggregateCreatedCommand<TEntry>>((c,cm)=>cm.SetEntry(c.Aggregate));
-        collectionBuilder.On<AggregateUpdatedCommand<TEntry>>((c,cm)=>cm.SetEntry(c.Aggregate));
-        collectionBuilder.On<AggregateDeletedCommand<TEntry,TKey>>((c,cm)=>cm.RemoveEntry(c.Key));
+        collectionBuilder.On<AggregateCreatedCommand<TEntry>>((c, cm) => cm.SetEntry(c.Aggregate));
+        collectionBuilder.On<AggregateUpdatedCommand<TEntry>>((c, cm) => cm.SetEntry(c.Aggregate));
+        collectionBuilder.On<AggregateDeletedCommand<TEntry, TKey>>((c, cm) => cm.RemoveEntry(c.Key));
 
         //register the change handler for the root entity and the command dispatcher
         _internalSyncStateBuilder.AddServiceCollectionProcessor(services =>
         {
             services.TryAddScopedImplementation<IChangeHandler, AggregateRootChangeHandler<TEntry, TEntity, TKey>>();
-            services.TryAddScopedImplementation<ICommandDispatcher, AggregateCommandDispatcher<TEntry, TEntity, TKey>>();
+            services
+                .TryAddScopedImplementation<ICommandDispatcher, AggregateCommandDispatcher<TEntry, TEntity, TKey>>();
             //register IAggregateStateStore if not already registered
             services.TryAddScoped<IAggregateStateStore, AggregateStateStore>();
         });
@@ -108,9 +109,10 @@ public class EfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> :
     }
 
     public IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithDirectAdditionalEntity<TAdditionalEntity>(
-        Func<TAdditionalEntity, TKey?> rootKeySelector) where TAdditionalEntity : class
+        Func<TAdditionalEntity, TKey?> rootKeySelector, Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
+        where TAdditionalEntity : class
     {
-        return WithAdditionalEntity(rootKeySelector, OriginalRootKeysSelector);
+        return WithAdditionalEntity(rootKeySelector, OriginalRootKeysSelector, filter);
 
         IEnumerable<TKey> OriginalRootKeysSelector(EntityEntry<TAdditionalEntity> entry, ChangeTracker changeTracker)
         {
@@ -123,9 +125,10 @@ public class EfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> :
     }
 
     public IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithAdditionalEntity<TAdditionalEntity>(
-        Func<TAdditionalEntity, TKey?> rootKeySelector) where TAdditionalEntity : class
+        Func<TAdditionalEntity, TKey?> rootKeySelector, Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
+        where TAdditionalEntity : class
     {
-        return WithAdditionalEntity((Func<TAdditionalEntity, IEnumerable<TKey>>)RootsSelector);
+        return WithAdditionalEntity((Func<TAdditionalEntity, IEnumerable<TKey>>)RootsSelector, null, filter);
 
         IEnumerable<TKey> RootsSelector(TAdditionalEntity x) =>
             rootKeySelector(x) is { } key ? [key] : Array.Empty<TKey>();
@@ -133,10 +136,11 @@ public class EfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> :
 
     public IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithAdditionalEntity<TAdditionalEntity>(
         Func<TAdditionalEntity, TKey?> rootKeySelector, Func<EntityEntry<TAdditionalEntity>, ChangeTracker, IEnumerable<
-            TKey>> originalRootKeysSelector) where TAdditionalEntity : class
+            TKey>> originalRootKeysSelector, Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
+        where TAdditionalEntity : class
     {
         return WithAdditionalEntity((Func<TAdditionalEntity, IEnumerable<TKey>>)RootsSelector,
-            originalRootKeysSelector);
+            originalRootKeysSelector, filter);
 
         IEnumerable<TKey> RootsSelector(TAdditionalEntity x)
         {
@@ -149,14 +153,22 @@ public class EfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> :
 
     public IEfCoreCollectionBuilder<TState, TEntry, TEntity, TKey> WithAdditionalEntity<TAdditionalEntity>(
         Func<TAdditionalEntity, IEnumerable<TKey>> rootKeysSelector,
-        Func<EntityEntry<TAdditionalEntity>, ChangeTracker, IEnumerable<TKey>>? originalRootKeySelector = null)
+        Func<EntityEntry<TAdditionalEntity>, ChangeTracker, IEnumerable<TKey>>? originalRootKeySelector = null,
+        Func<EntityEntry<TAdditionalEntity>, bool>? filter = null)
         where TAdditionalEntity : class
     {
         _extension.SetAggregateRootsSelector<TEntry, TEntity, TKey, TAdditionalEntity>(RootKeysSelector);
+        if (filter is not null)
+        {
+            _extension.SetAggregateParticipantUpdateFilter<TEntry, TEntity, TAdditionalEntity>(filter);
+        }
+
         //register the change handler for the additional entity
         _internalSyncStateBuilder.AddServiceCollectionProcessor(services =>
         {
-            services.TryAddScopedImplementation<IChangeHandler, AggregateNonRootChangeHandler<TEntry, TEntity, TAdditionalEntity, TKey>>();
+            services
+                .TryAddScopedImplementation<IChangeHandler,
+                    AggregateParticipantChangeHandler<TEntry, TEntity, TAdditionalEntity, TKey>>();
         });
         return this;
 
