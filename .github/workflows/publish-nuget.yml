@@ -25,6 +25,7 @@ jobs:
           - SyncState.ReloadInterval
           - SyncState.SignalR
           - SyncState.StateDeltas
+          - SyncState.Diagnostics
 
     steps:
       - uses: actions/checkout@v4
