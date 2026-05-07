@@ -6,6 +6,7 @@ using SyncState.Factories;
 using SyncState.InternalInterfaces;
 using SyncState.Models;
 using SyncState.Models.Configuration;
+using SyncState.Models.Diagnostics;
 
 namespace SyncState.Services;
 
@@ -165,7 +166,7 @@ public class SyncStateService : IInternalSyncStateService
             {
                 await initAction(_rootServiceProvider, cancellationToken);
             }
-            
+
             //init state managers
             foreach (var stateConfiguration in _configuration.StateConfigurations)
             {
@@ -213,7 +214,8 @@ public class SyncStateService : IInternalSyncStateService
         return commandDigestCycle;
     }
 
-    public async Task CommitCommandDigestCycleAsync(CommandDigestCycle commandDigestCycle,
+    public async Task<CommandDigestCycleCommitResult> CommitCommandDigestCycleAsync(
+        CommandDigestCycle commandDigestCycle,
         CancellationToken cancellationToken = default)
     {
         if (!_currentCommandDigestCycle.TryGetTarget(out var existingCycle) ||
@@ -222,12 +224,19 @@ public class SyncStateService : IInternalSyncStateService
             throw new InvalidOperationException("The provided command digest cycle is not the current active cycle.");
         }
 
+        List<StateChangeData> stateChanges = [];
+
         foreach (var stateManager in _stateManagersById.Values)
         {
-            await stateManager.CommitChangesAsync(cancellationToken);
+            if (await stateManager.CommitChangesAsync(cancellationToken) is { } stateChangeData)
+            {
+                stateChanges.Add(stateChangeData);
+            }
         }
 
         await _eventHub.BroadcastAsync(cancellationToken);
+
+        return new CommandDigestCycleCommitResult(stateChanges);
     }
 
     public void DisposeCommandDigestCycle(CommandDigestCycle commandDigestCycle)

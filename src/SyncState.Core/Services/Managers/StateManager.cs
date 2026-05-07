@@ -5,6 +5,7 @@ using SyncState.Factories;
 using SyncState.Interfaces.Interceptors;
 using SyncState.InternalInterfaces;
 using SyncState.Models.Configuration;
+using SyncState.Models.Diagnostics;
 using SyncState.Models.InterceptorContexts;
 using SyncState.Utils;
 
@@ -74,7 +75,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         }
     }
 
-    public async Task<bool> CommitChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<StateChangeData?> CommitChangesAsync(CancellationToken cancellationToken = default)
     {
         var anyChanges = false;
         foreach (var propertyManager in _propertyManagers.Values)
@@ -84,7 +85,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
 
         if (!anyChanges && _currentState != null)
         {
-            return false;
+            return null;
         }
 
         var newState = Activator.CreateInstance<TState>();
@@ -93,8 +94,13 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
             propertyManager.ApplyToStateObject(newState);
         }
 
+        var stateChangeData = _currentState switch
+        {
+            null => null, //since commitChanges is also called in initialization, we cant report a state change from null to initial state
+            _ => new StateChangeData<TState>(_currentState, newState)
+        };
         HandleStateChange(newState);
-        return anyChanges;
+        return stateChangeData;
     }
 
     public ChannelReader<TState> GetStateStream(CancellationToken cancellationToken = default)
@@ -110,7 +116,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         );
         _stateChannels.Add(channel);
         //write initial state to channel
-        if (!channel.Writer.TryWrite(_currentState))
+        if (_currentState == null || !channel.Writer.TryWrite(_currentState))
         {
             throw new InvalidOperationException("Failed to write initial state to channel");
         }

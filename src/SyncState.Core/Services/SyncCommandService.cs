@@ -1,6 +1,7 @@
 ﻿using SyncState.Interfaces;
 using SyncState.InternalInterfaces;
 using SyncState.Models;
+using SyncState.Models.Diagnostics;
 
 namespace SyncState.Services;
 
@@ -48,7 +49,13 @@ public class SyncCommandService : ISyncCommandService
         _bufferingEnabled = false;
     }
 
-    public async Task ExecuteBufferedCommandsAsync(CancellationToken cancellationToken = default)
+    public Task ExecuteBufferedCommandsAsync(CancellationToken cancellationToken = default)
+    {
+        return ExecuteBufferedCommandsImplAsync(cancellationToken);
+    }
+
+    public async Task<CommandDigestCycleCommitResult> ExecuteBufferedCommandsImplAsync(
+        CancellationToken cancellationToken = default)
     {
         using var commandDigestCycle = await _syncStateService
             .AcquireCommandDigestCycleAsync(_serviceProvider, cancellationToken);
@@ -56,11 +63,13 @@ public class SyncCommandService : ISyncCommandService
         {
             await bufferedNotification.DispatchAsync(_syncStateService, commandDigestCycle, cancellationToken);
         }
-        
-        await _syncStateService.CommitCommandDigestCycleAsync(commandDigestCycle, cancellationToken);
+
+        var commitResult = await _syncStateService.CommitCommandDigestCycleAsync(commandDigestCycle, cancellationToken);
 
         _bufferedCommands.Clear();
         _bufferingEnabled = false;
+
+        return commitResult;
     }
 }
 

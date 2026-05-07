@@ -1,5 +1,6 @@
 ﻿using SyncState.Interfaces;
 using SyncState.Models;
+using SyncState.Models.Diagnostics;
 
 namespace SyncState.InternalInterfaces;
 
@@ -30,7 +31,7 @@ public interface IInternalSyncStateService : ISyncStateService
     /// <param name="commandDigestCycle"></param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    Task CommitCommandDigestCycleAsync(CommandDigestCycle commandDigestCycle,CancellationToken cancellationToken = default);
+    Task<CommandDigestCycleCommitResult> CommitCommandDigestCycleAsync(CommandDigestCycle commandDigestCycle,CancellationToken cancellationToken = default);
     
     /// <summary>
     /// discard all pending property changes of the command digest cycle

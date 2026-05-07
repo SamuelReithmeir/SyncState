@@ -1,11 +1,11 @@
 ﻿using System.Threading.Channels;
 using SyncState.Interfaces.Managers;
+using SyncState.Models.Diagnostics;
 
 namespace SyncState.InternalInterfaces;
 
 public interface IInternalStateManager
 {
-    
     Task InitializeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -16,19 +16,20 @@ public interface IInternalStateManager
     /// <typeparam name="TCommand"></typeparam>
     Task HandleCommandAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
         where TCommand : notnull;
-    
+
     /// <summary>
-    /// Incorporate all pending property changes into property managers and return true if any changes occurred.
+    /// Incorporate all pending property changes into property managers and return <see cref="StateChangeData"/> if any changes occurred, null if unchanged.
     /// </summary>
     /// <param name="cancellationToken"></param>
-    Task<bool> CommitChangesAsync(CancellationToken cancellationToken = default);
+    Task<StateChangeData?> CommitChangesAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Discard all pending property changes.
     /// </summary>
     void DiscardChanges();
 }
 
-public interface IInternalStateManager<TState> : IInternalStateManager,IStateManager<TState> where TState : class
+public interface IInternalStateManager<TState> : IInternalStateManager, IStateManager<TState> where TState : class
 {
     ChannelReader<TState> GetStateStream(CancellationToken cancellationToken = default);
 }
