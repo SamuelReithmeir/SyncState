@@ -153,23 +153,32 @@ public class SyncStateService : IInternalSyncStateService
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
-        await using var scope = _rootServiceProvider.CreateAsyncScope();
-        CurrentExecutionServiceProvider.Value = scope.ServiceProvider;
+        // Block command digestion scope creation during initialization
+        await _commandDigestCycleLock.WaitAsync(cancellationToken);
+        try
+        {
+            await using var scope = _rootServiceProvider.CreateAsyncScope();
+            CurrentExecutionServiceProvider.Value = scope.ServiceProvider;
 
-        //execute configured init actions
-        foreach (var initAction in _configuration.InitActions)
-        {
-            await initAction(_rootServiceProvider, cancellationToken);
+            //execute configured init actions
+            foreach (var initAction in _configuration.InitActions)
+            {
+                await initAction(_rootServiceProvider, cancellationToken);
+            }
+            
+            //init state managers
+            foreach (var stateConfiguration in _configuration.StateConfigurations)
+            {
+                var stateManager = _rootServiceProvider.GetRequiredService<IStateManagerFactory>()
+                    .CreateStateManager(stateConfiguration);
+                _stateManagersByType.TryAdd(stateConfiguration.StateType, stateManager);
+                _stateManagersById.TryAdd(stateConfiguration.Id, stateManager);
+                await stateManager.InitializeAsync(cancellationToken);
+            }
         }
-        
-        //init state managers
-        foreach (var stateConfiguration in _configuration.StateConfigurations)
+        finally
         {
-            var stateManager = _rootServiceProvider.GetRequiredService<IStateManagerFactory>()
-                .CreateStateManager(stateConfiguration);
-            _stateManagersByType.TryAdd(stateConfiguration.StateType, stateManager);
-            _stateManagersById.TryAdd(stateConfiguration.Id, stateManager);
-            await stateManager.InitializeAsync(cancellationToken);
+            _commandDigestCycleLock.Release();
         }
     }
 
