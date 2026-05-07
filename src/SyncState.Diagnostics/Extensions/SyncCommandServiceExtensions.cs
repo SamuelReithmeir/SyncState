@@ -14,7 +14,7 @@ public static class SyncCommandServiceExtensions
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="InvalidOperationException"></exception>
-    static Task<CommandDigestCycleCommitResult> DiagnosticExecuteBufferedCommandsImplAsync(
+    public static Task<CommandDigestCycleCommitResult> DiagnosticExecuteBufferedCommandsImplAsync(
         this ISyncCommandService syncCommandService,
         CancellationToken cancellationToken = default)
     {
