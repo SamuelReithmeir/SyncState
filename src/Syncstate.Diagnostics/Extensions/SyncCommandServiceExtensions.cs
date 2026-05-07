@@ -2,7 +2,7 @@
 using SyncState.Models.Diagnostics;
 using SyncState.Services;
 
-namespace Syncstate.Diagnostics.Extensions;
+namespace SyncState.Diagnostics.Extensions;
 
 public static class SyncCommandServiceExtensions
 {

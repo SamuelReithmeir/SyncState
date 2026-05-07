@@ -21,7 +21,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncState.OptionsMonitor", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncState.ErrorHandling", "src\SyncState.ErrorHandling\SyncState.ErrorHandling.csproj", "{373454FE-FD28-4653-8546-A24EDAD37AE4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Syncstate.Diagnostics", "src\Syncstate.Diagnostics\Syncstate.Diagnostics.csproj", "{A53AF39B-CD7C-476E-B893-A67D9DEC7D1F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncState.Diagnostics", "src\SyncState.Diagnostics\SyncState.Diagnostics.csproj", "{A53AF39B-CD7C-476E-B893-A67D9DEC7D1F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
