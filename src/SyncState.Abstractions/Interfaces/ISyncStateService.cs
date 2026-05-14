@@ -1,5 +1,4 @@
-﻿using System.Threading.Channels;
-using SyncState.Models;
+﻿using SyncState.Models;
 
 namespace SyncState.Interfaces;
 
@@ -20,25 +19,6 @@ public interface ISyncStateService
     /// <typeparam name="TState">The type of state to stream.</typeparam>
     /// <returns>An async enumerable that streams state objects.</returns>
     IAsyncEnumerable<TState> GetStateEnumerable<TState>(CancellationToken cancellationToken = default)
-        where TState : class;
-
-    /// <summary>
-    /// Gets a channel reader that streams state objects of type <typeparamref name="TState"/>.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token to cancel the operation.</param>
-    /// <typeparam name="TState">The type of state to stream.</typeparam>
-    /// <returns>A channel reader that provides access to state objects.</returns>
-    ChannelReader<TState> GetStateChannelReader<TState>(CancellationToken cancellationToken = default)
-        where TState : class;
-
-    /// <summary>
-    /// Registers a callback for state updates of type <typeparamref name="TState"/>.
-    /// </summary>
-    /// <param name="onStateUpdated">The callback to invoke when the state is updated.</param>
-    /// <param name="invokeForCurrentState">If true, the callback is invoked immediately with the current state.</param>
-    /// <typeparam name="TState">The type of state to subscribe to.</typeparam>
-    void RegisterStateCallback<TState>(Action<TState> onStateUpdated,
-        bool invokeForCurrentState = true)
         where TState : class;
 
     /// <summary>

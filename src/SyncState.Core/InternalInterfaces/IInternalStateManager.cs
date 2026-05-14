@@ -1,5 +1,4 @@
-﻿using System.Threading.Channels;
-using SyncState.Interfaces.Managers;
+﻿using SyncState.Interfaces.Managers;
 using SyncState.Models.Diagnostics;
 
 namespace SyncState.InternalInterfaces;
@@ -31,5 +30,5 @@ public interface IInternalStateManager
 
 public interface IInternalStateManager<TState> : IInternalStateManager, IStateManager<TState> where TState : class
 {
-    ChannelReader<TState> GetStateStream(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<TState> GetStateStream(CancellationToken cancellationToken = default);
 }

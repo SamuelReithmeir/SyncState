@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
-using System.Threading.Channels;
 using Microsoft.Extensions.DependencyInjection;
 using SyncState.Factories;
 using SyncState.InternalInterfaces;
@@ -41,7 +40,10 @@ public class SyncStateService : IInternalSyncStateService
                 $"No state manager registered for state type {typeof(TState).FullName}");
         }
 
-        return await manager.GetStateStream(cancellationToken).ReadAsync(cancellationToken);
+        await foreach (var state in manager.GetStateStream(cancellationToken))
+            return state;
+
+        throw new InvalidOperationException($"State stream for {typeof(TState).FullName} ended unexpectedly");
     }
 
     public IAsyncEnumerable<TState> GetStateEnumerable<TState>(CancellationToken cancellationToken = default)
@@ -54,40 +56,7 @@ public class SyncStateService : IInternalSyncStateService
                 $"No state manager registered for state type {typeof(TState).FullName}");
         }
 
-        return manager.GetStateStream(cancellationToken).ReadAllAsync(cancellationToken);
-    }
-
-    public ChannelReader<TState> GetStateChannelReader<TState>(CancellationToken cancellationToken = default)
-        where TState : class
-    {
-        if (!_stateManagersByType.TryGetValue(typeof(TState), out var untypedManager) ||
-            untypedManager is not IInternalStateManager<TState> manager)
-        {
-            throw new InvalidOperationException(
-                $"No state manager registered for state type {typeof(TState).FullName}");
-        }
-
         return manager.GetStateStream(cancellationToken);
-    }
-
-    public void RegisterStateCallback<TState>(Action<TState> onStateUpdated, bool invokeForCurrentState = true)
-        where TState : class
-    {
-        if (!_stateManagersByType.TryGetValue(typeof(TState), out var untypedManager) ||
-            untypedManager is not IInternalStateManager<TState> manager)
-        {
-            throw new InvalidOperationException(
-                $"No state manager registered for state type {typeof(TState).FullName}");
-        }
-
-        var reader = manager.GetStateStream();
-        _ = Task.Run(async () =>
-        {
-            await foreach (var state in reader.ReadAllAsync())
-            {
-                onStateUpdated(state);
-            }
-        });
     }
 
     public async IAsyncEnumerable<TEvent> GetEventStreamAsync<TEvent>(
@@ -123,8 +92,9 @@ public class SyncStateService : IInternalSyncStateService
         try
         {
             var stateManager = (IInternalStateManager<TState>)_stateManagersByType[typeof(TState)];
-            var state = await stateManager.GetStateStream(cancellationToken).ReadAsync(cancellationToken);
-            return (state, GetEventStreamAsync<TEvent>(cancellationToken));
+            await foreach (var state in stateManager.GetStateStream(cancellationToken))
+                return (state, GetEventStreamAsync<TEvent>(cancellationToken));
+            throw new InvalidOperationException($"State stream for {typeof(TState).FullName} ended unexpectedly");
         }
         finally
         {
@@ -141,8 +111,9 @@ public class SyncStateService : IInternalSyncStateService
         try
         {
             var stateManager = (IInternalStateManager<TState>)_stateManagersByType[typeof(TState)];
-            var state = await stateManager.GetStateStream(cancellationToken).ReadAsync(cancellationToken);
-            return (state, GetBatchedEventStreamAsync<TEvent>(cancellationToken));
+            await foreach (var state in stateManager.GetStateStream(cancellationToken))
+                return (state, GetBatchedEventStreamAsync<TEvent>(cancellationToken));
+            throw new InvalidOperationException($"State stream for {typeof(TState).FullName} ended unexpectedly");
         }
         finally
         {

@@ -20,7 +20,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
 
     private readonly ConcurrentDictionary<Type, List<Guid>> _commandTypeRegisteredPropertyManagers = [];
 
-    private readonly ConcurrentBag<Channel<TState>> _stateChannels = [];
+    private readonly ConcurrentDictionary<Guid, Channel<TState>> _stateChannels = [];
     private TState? _currentState;
 
     public StateManager(StateConfiguration<TState> stateConfiguration, IServiceProvider rootServiceProvider)
@@ -103,25 +103,33 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
         return stateChangeData;
     }
 
-    public ChannelReader<TState> GetStateStream(CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<TState> GetStateStream(CancellationToken cancellationToken = default)
     {
-        //create channel
         var channel = Channel.CreateBounded<TState>(new BoundedChannelOptions(1)
-            {
-                SingleReader = true,
-                SingleWriter = true,
-                AllowSynchronousContinuations = false,
-                FullMode = BoundedChannelFullMode.DropOldest
-            }
-        );
-        _stateChannels.Add(channel);
-        //write initial state to channel
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            AllowSynchronousContinuations = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
+
+        var id = Guid.NewGuid();
+        _stateChannels.TryAdd(id, channel);
+
         if (_currentState == null || !channel.Writer.TryWrite(_currentState))
         {
             throw new InvalidOperationException("Failed to write initial state to channel");
         }
 
-        return channel.Reader;
+        try
+        {
+            await foreach (var state in channel.Reader.ReadAllAsync(cancellationToken))
+                yield return state;
+        }
+        finally
+        {
+            _stateChannels.TryRemove(id, out _);
+        }
     }
 
     public async Task HandleCommandAsync<TCommand>(TCommand command, CancellationToken cancellationToken = default)
@@ -176,7 +184,7 @@ public class StateManager<TState> : IInternalStateManager<TState> where TState :
     private void HandleStateChange(TState newState)
     {
         _currentState = newState;
-        foreach (var channel in _stateChannels)
+        foreach (var channel in _stateChannels.Values)
         {
             channel.Writer.TryWrite(newState);
         }
