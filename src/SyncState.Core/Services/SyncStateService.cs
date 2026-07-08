@@ -62,9 +62,7 @@ public class SyncStateService : IInternalSyncStateService
     public async IAsyncEnumerable<TEvent> GetEventStreamAsync<TEvent>(
         [EnumeratorCancellation] CancellationToken cancellationToken = default) where TEvent : notnull
     {
-        var reader = _eventHub.GetEventStream<TEvent>(cancellationToken);
-
-        await foreach (var batch in reader.ReadAllAsync(cancellationToken))
+        await foreach (var batch in _eventHub.GetEventStream<TEvent>(cancellationToken))
         {
             foreach (var @event in batch.Events)
             {
@@ -76,9 +74,7 @@ public class SyncStateService : IInternalSyncStateService
     public async IAsyncEnumerable<EventBatch<TEvent>> GetBatchedEventStreamAsync<TEvent>(
         [EnumeratorCancellation] CancellationToken cancellationToken = default) where TEvent : notnull
     {
-        var reader = _eventHub.GetEventStream<TEvent>(cancellationToken);
-
-        await foreach (var batch in reader.ReadAllAsync(cancellationToken))
+        await foreach (var batch in _eventHub.GetEventStream<TEvent>(cancellationToken))
         {
             yield return batch;
         }

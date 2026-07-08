@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using SyncState.InternalInterfaces;
 using SyncState.Models;
@@ -36,7 +37,7 @@ public class SyncEventHub : IInternalSyncEventHub
         }
     }
 
-    public ChannelReader<EventBatch<TEvent>> GetEventStream<TEvent>(CancellationToken cancellationToken = default) where TEvent : notnull
+    public IAsyncEnumerable<EventBatch<TEvent>> GetEventStream<TEvent>(CancellationToken cancellationToken = default) where TEvent : notnull
     {
         var eventHub = (IEventOutHub<TEvent>)_eventHubs.GetOrAdd(typeof(TEvent), _ => new EventHub<TEvent>());
         return eventHub.GetEventStream(cancellationToken);
@@ -52,7 +53,7 @@ interface IEventHub
 
 interface IEventOutHub<TEvent> : IEventHub where TEvent : notnull
 {
-    ChannelReader<EventBatch<TEvent>> GetEventStream(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<EventBatch<TEvent>> GetEventStream(CancellationToken cancellationToken = default);
 }
 interface IEventInHub<in TEvent> : IEventHub where TEvent : notnull
 {
@@ -61,7 +62,7 @@ interface IEventInHub<in TEvent> : IEventHub where TEvent : notnull
 
 class EventHub<TEvent>: IEventInHub<TEvent>, IEventOutHub<TEvent> where TEvent : notnull
 {
-    private readonly HashSet<Channel<EventBatch<TEvent>>> _subscribers = [];
+    private readonly ConcurrentDictionary<Guid, Channel<EventBatch<TEvent>>> _subscribers = [];
     private List<TEvent> _pendingEvents = [];
 
     public async Task BroadcastAsync(CancellationToken cancellationToken)
@@ -75,7 +76,7 @@ class EventHub<TEvent>: IEventInHub<TEvent>, IEventOutHub<TEvent> where TEvent :
         {
             Events = _pendingEvents
         };
-        foreach (var subscriber in _subscribers)
+        foreach (var subscriber in _subscribers.Values)
         {
             await subscriber.Writer.WriteAsync(eventBatch, cancellationToken);
         }
@@ -93,14 +94,28 @@ class EventHub<TEvent>: IEventInHub<TEvent>, IEventOutHub<TEvent> where TEvent :
         _pendingEvents.Add(syncEvent);
     }
 
-    public ChannelReader<EventBatch<TEvent>> GetEventStream(CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<EventBatch<TEvent>> GetEventStream(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var channel = Channel.CreateUnbounded<EventBatch<TEvent>>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = true
         });
-        _subscribers.Add(channel);
-        return channel.Reader;
+
+        var id = Guid.NewGuid();
+        _subscribers.TryAdd(id, channel);
+
+        try
+        {
+            await foreach (var batch in channel.Reader.ReadAllAsync(cancellationToken))
+            {
+                yield return batch;
+            }
+        }
+        finally
+        {
+            _subscribers.TryRemove(id, out _);
+        }
     }
 }
