@@ -11,22 +11,27 @@ on:
       - '.github/workflows/publish-nuget.yml'
   workflow_dispatch:
 
+# NOTE ON ATOMICITY:
+# NuGet.org has no transactional "publish N packages" API, so true all-or-nothing
+# publishing isn't something the registry can guarantee for us. This workflow gets
+# as close as practically possible by running as a SINGLE sequential job (not a
+# matrix) with two phases:
+#
+#   1. Build & pack EVERY package first. If any single project fails to build or
+#      pack, the job fails before a single `nuget push` has happened -> "none".
+#   2. Push packages one at a time, in dependency order. Every successful push in
+#      this run is tracked. If any push ultimately fails (after retries), every
+#      package version pushed earlier in the SAME run is unlisted (best-effort
+#      rollback) from NuGet.org and the job fails -> as close to "none" as NuGet.org
+#      allows (unlisting hides the package from search/restore-by-default, it does
+#      not hard-delete it - NuGet.org never truly deletes a pushed version).
+#
+# Re-running the workflow after a failure is always safe/idempotent: packages that
+# already exist on NuGet.org are detected up front and skipped.
+
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        project:
-          - SyncState.Abstractions
-          - SyncState.Core
-          - SyncState.EntityFrameworkCore
-          - SyncState.ErrorHandling
-          - SyncState.OptionsMonitor
-          - SyncState.ReloadInterval
-          - SyncState.SignalR
-          - SyncState.StateDeltas
-          - SyncState.Diagnostics
-
     steps:
       - uses: actions/checkout@v4
 
@@ -52,55 +57,132 @@ jobs:
           echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "Package version: $FULL_VERSION"
 
-      - name: Check if package already exists on NuGet.org
-        id: check-package
+      - name: Build & pack all packages
+        id: build-pack
         shell: bash
         run: |
-          PACKAGE_NAME="${{ matrix.project }}"
+          set -e
+
           VERSION="${{ steps.get-version.outputs.version }}"
-          
-          # Query NuGet.org API to check if this exact version exists
-          RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PACKAGE_NAME,,}/index.json" || echo "{}")
-          
-          if echo "$RESPONSE" | grep -q "\"$VERSION\""; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Package $PACKAGE_NAME version $VERSION already exists on NuGet.org"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Package $PACKAGE_NAME version $VERSION does not exist, will publish"
+          mkdir -p ./nupkg
+
+          # Dependency order (dependencies before dependents). Not strictly
+          # required for push, but kept for clarity/consistency with rollback order.
+          PROJECTS=(
+            SyncState.Abstractions
+            SyncState.Core
+            SyncState.StateDeltas
+            SyncState.SignalR
+            SyncState.Diagnostics
+            SyncState.EntityFrameworkCore
+            SyncState.ErrorHandling
+            SyncState.OptionsMonitor
+            SyncState.ReloadInterval
+          )
+
+          TO_PUBLISH=()
+
+          for PROJECT in "${PROJECTS[@]}"; do
+            echo "::group::Checking $PROJECT"
+            RESPONSE=$(curl -s "https://api.nuget.org/v3-flatcontainer/${PROJECT,,}/index.json" || echo "{}")
+            if echo "$RESPONSE" | grep -q "\"$VERSION\""; then
+              echo "Package $PROJECT version $VERSION already exists on NuGet.org. Skipping."
+              echo "::endgroup::"
+              continue
+            fi
+            echo "::endgroup::"
+
+            echo "::group::Build & pack $PROJECT"
+            dotnet build "src/$PROJECT/$PROJECT.csproj" -c Release --no-restore
+            dotnet pack "src/$PROJECT/$PROJECT.csproj" -c Release --no-build -o ./nupkg
+            echo "::endgroup::"
+
+            TO_PUBLISH+=("$PROJECT")
+          done
+
+          # Persist the ordered publish list for the next step.
+          printf '%s\n' "${TO_PUBLISH[@]}" > ./nupkg/.to-publish
+
+          if [ ${#TO_PUBLISH[@]} -eq 0 ]; then
+            echo "All package versions already published. Nothing to do."
           fi
 
-      - name: Build project
-        if: steps.check-package.outputs.exists == 'false'
-        run: dotnet build src/${{ matrix.project }}/${{ matrix.project }}.csproj -c Release --no-restore
-
-      - name: Pack NuGet package
-        if: steps.check-package.outputs.exists == 'false'
-        run: |
-          dotnet pack src/${{ matrix.project }}/${{ matrix.project }}.csproj \
-            -c Release \
-            --no-build \
-            -o ./nupkg
-
-      - name: Upload NuGet package as artifact
-        if: steps.check-package.outputs.exists == 'false'
+      - name: Upload NuGet packages as artifact
+        if: hashFiles('./nupkg/*.nupkg') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: nuget-packages-${{ matrix.project }}
+          name: nuget-packages
           path: ./nupkg/*.nupkg
           retention-days: 30
 
-      - name: Publish to NuGet.org
-        if: steps.check-package.outputs.exists == 'false'
+      - name: Publish to NuGet.org (all-or-rollback)
+        if: hashFiles('./nupkg/*.nupkg') != ''
+        shell: bash
         run: |
-          dotnet nuget push ./nupkg/*.nupkg \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+          set +e
+
+          VERSION="${{ steps.get-version.outputs.version }}"
+          SOURCE="https://api.nuget.org/v3/index.json"
+          PUSHED=()
+
+          push_with_retry() {
+            local FILE="$1"
+            local MAX_ATTEMPTS=5
+            local ATTEMPT=1
+            local DELAY=15
+
+            until dotnet nuget push "$FILE" \
+              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --source "$SOURCE" \
+              --skip-duplicate
+            do
+              local EXIT_CODE=$?
+              if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+                return $EXIT_CODE
+              fi
+              echo "Push attempt $ATTEMPT for $FILE failed (likely a transient NuGet.org error). Retrying in ${DELAY}s..."
+              sleep $DELAY
+              ATTEMPT=$((ATTEMPT + 1))
+              DELAY=$((DELAY * 2))
+            done
+            return 0
+          }
+
+          rollback() {
+            echo "::warning::Rolling back ${#PUSHED[@]} previously pushed package(s) from this run..."
+            for PROJECT in "${PUSHED[@]}"; do
+              echo "Unlisting $PROJECT $VERSION ..."
+              dotnet nuget delete "$PROJECT" "$VERSION" \
+                --api-key "${{ secrets.NUGET_API_KEY }}" \
+                --source "$SOURCE" \
+                --non-interactive
+              if [ $? -ne 0 ]; then
+                echo "::error::Failed to unlist $PROJECT $VERSION - manual cleanup required on NuGet.org."
+              else
+                echo "Unlisted $PROJECT $VERSION."
+              fi
+            done
+          }
+
+          while IFS= read -r PROJECT; do
+            [ -z "$PROJECT" ] && continue
+            FILE="./nupkg/${PROJECT}.${VERSION}.nupkg"
+
+            echo "::group::Pushing $PROJECT $VERSION"
+            push_with_retry "$FILE"
+            RESULT=$?
+            echo "::endgroup::"
+
+            if [ $RESULT -ne 0 ]; then
+              echo "::error::Failed to push $PROJECT $VERSION after retries."
+              rollback
+              exit 1
+            fi
+
+            PUSHED+=("$PROJECT")
+          done < ./nupkg/.to-publish
+
+          echo "Successfully published ${#PUSHED[@]} package version(s): ${PUSHED[*]}"
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-
-      - name: Skip publishing (package already exists)
-        if: steps.check-package.outputs.exists == 'true'
-        run: echo "Package ${{ matrix.project }} version ${{ steps.get-version.outputs.version }} already exists on NuGet.org. Skipping publication."
 
