@@ -92,11 +92,38 @@ jobs:
 
       - name: Publish to NuGet.org
         if: steps.check-package.outputs.exists == 'false'
+        shell: bash
         run: |
+          set -x
           dotnet nuget push ./nupkg/*.nupkg \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --api-key "${{ secrets.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+            --skip-duplicate \
+            --verbosity diagnostic \
+            --force-english-output
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+
+      - name: Diagnose push endpoint with raw curl (verbose)
+        if: steps.check-package.outputs.exists == 'false' && failure()
+        shell: bash
+        run: |
+          for FILE in ./nupkg/*.nupkg; do
+            echo "::group::Raw curl push attempt for $FILE"
+            curl -v -sS \
+              -X PUT \
+              -H "X-NuGet-ApiKey: ${NUGET_API_KEY}" \
+              -H "X-NuGet-Client-Version: 6.0.0" \
+              -F "package=@${FILE}" \
+              https://www.nuget.org/api/v2/package/ \
+              -o /tmp/nuget-push-response.txt \
+              -D /tmp/nuget-push-headers.txt
+            echo "--- Response headers ---"
+            cat /tmp/nuget-push-headers.txt
+            echo "--- Response body ---"
+            cat /tmp/nuget-push-response.txt
+            echo "::endgroup::"
+          done
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
