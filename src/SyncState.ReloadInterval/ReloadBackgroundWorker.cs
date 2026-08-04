@@ -1,7 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SyncState.Diagnostics;
 using SyncState.Interfaces;
 using SyncState.Models.Configuration;
 
@@ -30,14 +32,37 @@ public class ReloadBackgroundWorker : BackgroundService
 
         await foreach (var interval in GetMixedIntervalsAsync(timerExtension.Intervals.ToArray(), stoppingToken))
         {
+            using var activity = SyncStateActivitySource.Instance.StartActivity(
+                "SyncState.TimedReload", ActivityKind.Internal);
+            activity?.SetTag("syncstate.reload.interval", interval.ToString("c"));
+
             await using var scope = _serviceScopeFactory.CreateAsyncScope();
             var commandService = scope.ServiceProvider.GetRequiredService<ISyncCommandService>();
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            await commandService.HandleAsync(new TimedReloadCommand
+            var stopwatch = Stopwatch.StartNew();
+            try
             {
-                Interval = interval
-            }, stoppingToken);
-            stopwatch.Stop();
+                await commandService.HandleAsync(new TimedReloadCommand
+                {
+                    Interval = interval
+                }, stoppingToken);
+                activity?.SetStatus(ActivityStatusCode.Ok);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddTag("exception.type", ex.GetType().FullName);
+                activity?.AddTag("exception.message", ex.Message);
+                throw;
+            }
+            finally
+            {
+                stopwatch.Stop();
+            }
+
             _logger.LogDebug("Executed TimedReloadCommand for interval {Interval} in {ElapsedMs} ms", interval, stopwatch.ElapsedMilliseconds);
         }
     }

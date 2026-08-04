@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using System.Diagnostics;
+using Microsoft.Extensions.Hosting;
+using SyncState.Diagnostics;
 using SyncState.InternalInterfaces;
 
 namespace SyncState.Services;
@@ -12,8 +14,26 @@ public class SyncStateInitializer:BackgroundService
         _internalSyncStateService = internalSyncStateService;
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        return _internalSyncStateService.InitializeAsync(stoppingToken);
+        using var activity = SyncStateActivitySource.Instance.StartActivity(
+            "SyncState.Initialize", ActivityKind.Internal);
+
+        try
+        {
+            await _internalSyncStateService.InitializeAsync(stoppingToken);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddTag("exception.type", ex.GetType().FullName);
+            activity?.AddTag("exception.message", ex.Message);
+            throw;
+        }
     }
 }

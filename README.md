@@ -720,6 +720,33 @@ The `OnChange` callback fires synchronously on the `IOptionsMonitor` thread so S
 
 ---
 
+## Observability: OpenTelemetry Tracing
+
+`SyncState.Core` and `SyncState.ReloadInterval` emit `System.Diagnostics.Activity` spans for their background operations via a shared `ActivitySource` named `"SyncState"`, so they show up automatically in any OpenTelemetry-instrumented app — no extra package required.
+
+### Enabling tracing
+
+Add the `"SyncState"` source to your `TracerProviderBuilder` (requires the `OpenTelemetry.Extensions.Hosting` package):
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithTracing(tracing => tracing
+        .AddSource("SyncState")
+        // ... your exporters, e.g.:
+        .AddOtlpExporter());
+```
+
+### Activities emitted
+
+| Activity name | Emitted by | Tags | Description |
+|---|---|---|---|
+| `SyncState.Initialize` | `SyncStateInitializer` (`SyncState.Core`) | — | Wraps the one-time startup initialization of all configured states/properties |
+| `SyncState.TimedReload` | `ReloadBackgroundWorker` (`SyncState.ReloadInterval`) | `syncstate.reload.interval` | Wraps each timer tick's `TimedReloadCommand` dispatch |
+
+Both activities are marked `Ok` on success, or `Error` — with `exception.type` and `exception.message` tags — if the wrapped operation throws.
+
+---
+
 ## Interceptors
 
 Interceptors are middleware hooks that wrap the two core operations on any manager — **initialization** and **command handling**. They let you add cross-cutting behaviour (logging, auth, metrics, resilience) without modifying state or property configuration.
