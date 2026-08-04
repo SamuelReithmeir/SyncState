@@ -95,35 +95,82 @@ jobs:
         shell: bash
         run: |
           set -x
-          dotnet nuget push ./nupkg/*.nupkg \
-            --api-key "${{ secrets.NUGET_API_KEY }}" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate \
-            --verbosity diagnostic \
-            --force-english-output
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
-      - name: Diagnose push endpoint with raw curl (verbose)
-        if: steps.check-package.outputs.exists == 'false' && failure()
-        shell: bash
-        run: |
-          for FILE in ./nupkg/*.nupkg; do
-            echo "::group::Raw curl push attempt for $FILE"
-            curl -v -sS \
+          push_via_dotnet() {
+            local FILE="$1"
+            dotnet nuget push "$FILE" \
+              --api-key "${NUGET_API_KEY}" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate \
+              --force-english-output
+          }
+
+          # Fallback: push the raw .nupkg directly via the legacy v2 push endpoint.
+          # Proven to succeed even in cases where `dotnet nuget push` intermittently
+          # gets a 500 from NuGet.org (likely due to how the .NET HttpClient
+          # negotiates the request vs. NuGet.org's Front Door edge for that endpoint).
+          push_via_curl() {
+            local FILE="$1"
+            local STATUS
+            STATUS=$(curl -sS -o /tmp/nuget-push-response.txt -w "%{http_code}" \
               -X PUT \
               -H "X-NuGet-ApiKey: ${NUGET_API_KEY}" \
               -H "X-NuGet-Client-Version: 6.0.0" \
               -F "package=@${FILE}" \
-              https://www.nuget.org/api/v2/package/ \
-              -o /tmp/nuget-push-response.txt \
-              -D /tmp/nuget-push-headers.txt
-            echo "--- Response headers ---"
-            cat /tmp/nuget-push-headers.txt
-            echo "--- Response body ---"
+              https://www.nuget.org/api/v2/package/)
+
+            echo "curl push HTTP status: $STATUS"
             cat /tmp/nuget-push-response.txt
-            echo "::endgroup::"
+
+            # 200/201 = created, 409 = already exists (treat as success, mirrors --skip-duplicate)
+            [ "$STATUS" = "200" ] || [ "$STATUS" = "201" ] || [ "$STATUS" = "409" ]
+          }
+
+          FILE=$(ls ./nupkg/*.nupkg | head -n 1)
+          MAX_ATTEMPTS=3
+
+          DOTNET_SUCCESS=false
+          ATTEMPT=1
+          DELAY=15
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            if push_via_dotnet "$FILE"; then
+              DOTNET_SUCCESS=true
+              break
+            fi
+            echo "dotnet nuget push attempt $ATTEMPT failed."
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "Retrying in ${DELAY}s..."
+              sleep $DELAY
+            fi
+            ATTEMPT=$((ATTEMPT + 1))
+            DELAY=$((DELAY * 2))
           done
+
+          if [ "$DOTNET_SUCCESS" != "true" ]; then
+            echo "::warning::dotnet nuget push failed after $MAX_ATTEMPTS attempts. Falling back to raw curl push..."
+
+            CURL_SUCCESS=false
+            ATTEMPT=1
+            DELAY=15
+            while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+              if push_via_curl "$FILE"; then
+                CURL_SUCCESS=true
+                break
+              fi
+              echo "curl push attempt $ATTEMPT failed."
+              if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+                echo "Retrying in ${DELAY}s..."
+                sleep $DELAY
+              fi
+              ATTEMPT=$((ATTEMPT + 1))
+              DELAY=$((DELAY * 2))
+            done
+
+            if [ "$CURL_SUCCESS" != "true" ]; then
+              echo "::error::Both dotnet nuget push and curl fallback failed after retries."
+              exit 1
+            fi
+          fi
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
