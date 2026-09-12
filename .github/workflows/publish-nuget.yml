@@ -14,6 +14,8 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # enable GitHub OIDC token issuance for trusted publishing
     strategy:
       matrix:
         project:
@@ -95,19 +97,24 @@ jobs:
             ./nupkg/*.snupkg
           retention-days: 30
 
+      - name: NuGet login (OIDC → temp API key)
+        if: steps.check-package.outputs.exists == 'false'
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to NuGet.org
         if: steps.check-package.outputs.exists == 'false'
         run: |
           dotnet nuget push "./nupkg/*.nupkg" \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
           dotnet nuget push "./nupkg/*.snupkg" \
-            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
 
       - name: Skip publishing (package already exists)
         if: steps.check-package.outputs.exists == 'true'
