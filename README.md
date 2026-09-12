@@ -270,6 +270,113 @@ state.Property(x => x.Config)
 
 ---
 
+## Configuration Classes
+
+State and property configuration can live in dedicated classes. Configuration classes have a public parameterless constructor.
+
+### State configurations (`IStateConfiguration<TState>`)
+
+An `IStateConfiguration<TState>` configures one state type.
+
+```csharp
+public class ApplicationStateConfiguration : IStateConfiguration<ApplicationStateDto>
+{
+    public void Configure(IStateConfigurationBuilder<ApplicationStateDto> state)
+    {
+        state.Property(x => x.ActiveUserCount)
+            .GatherFrom<IActiveUserStore>(s => s.GetUsers().Count);
+
+        state.Collection(x => x.Orders)
+            .WithKey(x => x.Id)
+            .GatherFromAsync<AppDbContext>((db, ct) =>
+                db.Orders.Select(o => o.ToDto()).ToListAsync(ct));
+    }
+}
+```
+
+Registration:
+
+```csharp
+builder.Services.AddSyncState(config =>
+{
+    // one configuration class
+    config.AddStateConfiguration<ApplicationStateConfiguration>();
+
+    // all configuration classes of an assembly (state and property configurations)
+    config.AddConfigurationsFromAssemblyContaining<Program>();
+
+    // filtered by type
+    config.AddConfigurationsFromAssembly(typeof(Program).Assembly,
+        type => type.Namespace == "MyApp.SyncState");
+});
+```
+
+- A class implementing `IStateConfiguration<T>` for several `T` adds each of them.
+- Each state type is added once. Adding it a second time throws.
+- Each property of a state is configured once. Configuring it a second time throws.
+
+### Property configurations (`IPropertyConfiguration<TProperty>`)
+
+An `IPropertyConfiguration<TProperty>` configures a property of type `TProperty` independent of the state it belongs to. `ICollectionPropertyConfiguration<TEntry, TKey>` is the counterpart for collection properties. Its key selector identifies the entries when the configuration is assigned automatically; an explicitly configured collection keeps the key selector of `WithKey`.
+
+```csharp
+public class ActiveUserCountConfiguration : IPropertyConfiguration<int>
+{
+    public void Configure<TState>(IPropertyConfigurationBuilder<TState, int> property)
+        where TState : class
+    {
+        property.GatherFrom<IActiveUserStore>(s => s.GetUsers().Count)
+            .Emit<ActiveUserCountChangedEvent>(count => new ActiveUserCountChangedEvent(count));
+    }
+}
+
+public class OrdersConfiguration : ICollectionPropertyConfiguration<OrderDto, int>
+{
+    public Expression<Func<OrderDto, int>> KeySelector => order => order.Id;
+
+    public void Configure<TState>(ICollectionPropertyBuilder<TState, OrderDto, int> orders)
+        where TState : class
+    {
+        orders.GatherFromAsync<AppDbContext>((db, ct) =>
+                db.Orders.Select(o => o.ToDto()).ToListAsync(ct))
+            .On<OrderCreatedCommand>((cmd, manager) => manager.SetEntry(cmd.Order));
+    }
+}
+```
+
+**Explicit application** on the property builder. Calls chained after `ApplyConfiguration` configure the property further:
+
+```csharp
+state.Property(x => x.ActiveUserCount)
+    .ApplyConfiguration<ActiveUserCountConfiguration>();
+
+state.Collection(x => x.Orders)
+    .WithKey(x => x.Id)
+    .ApplyConfiguration<OrdersConfiguration>()
+    .EmitOnAdd(order => new OrderAddedEvent(order));
+```
+
+**Automatic assignment** for public properties a state configuration leaves unconfigured. Registered property configurations are the candidates:
+
+```csharp
+builder.Services.AddSyncState(config =>
+{
+    config.AddPropertyConfiguration<OrdersConfiguration>();
+    // or, together with the state configurations:
+    config.AddConfigurationsFromAssemblyContaining<Program>();
+});
+```
+
+An unconfigured property receives the registered configuration matching its type, in this order of precedence:
+
+1. an `IPropertyConfiguration<TProperty>` whose `TProperty` equals the property type,
+2. an `ICollectionPropertyConfiguration<TEntry, TKey>` whose `IEnumerable<TEntry>` the property type implements,
+3. an `ICollectionPropertyConfiguration<TEntry, TKey>` whose `IEnumerable<TEntry>` the property type is assignable to.
+
+A property configured in the state configuration never receives a registered configuration. Several registered configurations matching one property with the same precedence throw when the SyncState configuration is built. A property with neither explicit nor matching registered configuration throws as well.
+
+---
+
 ## Property & State Managers
 
 Every configured property has a dedicated **property manager** instance, and every registered state has a **state manager** instance. These are created once at startup and live for the lifetime of the application — they are not request-scoped.

@@ -138,4 +138,17 @@ public interface IPropertyConfigurationBuilder<TState, TProperty> where TState :
     /// <returns></returns>
     IPropertyConfigurationBuilder<TState, TProperty> WithInterceptor<TInterceptor>()
         where TInterceptor : class, IPropertyInterceptor<TProperty>;
+
+    /// <summary>
+    /// Applies the property configuration <typeparamref name="TConfiguration"/> to this property.
+    /// Calls chained after this one configure the property further.
+    /// </summary>
+    /// <typeparam name="TConfiguration">The property configuration class.</typeparam>
+    /// <returns>The property configuration builder for method chaining.</returns>
+    IPropertyConfigurationBuilder<TState, TProperty> ApplyConfiguration<TConfiguration>()
+        where TConfiguration : IPropertyConfiguration<TProperty>, new()
+    {
+        new TConfiguration().Configure(this);
+        return this;
+    }
 }

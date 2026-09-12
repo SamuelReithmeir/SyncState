@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Reflection;
 using SyncState.Configuration.Interfaces;
 using SyncState.Enums;
 using SyncState.Interfaces.Managers;
@@ -26,8 +27,13 @@ internal class CollectionPropertyBuilder<TState, TEntry, TKey> :
 
     public CollectionPropertyBuilder(StateConfigurationBuilder<TState> parentBuilder,
         Expression<Func<TState, IEnumerable<TEntry>>> collectionExpression,
-        Expression<Func<TEntry, TKey>> keySelector) : base(
-        parentBuilder, collectionExpression.GetPropertyInfo())
+        Expression<Func<TEntry, TKey>> keySelector) : this(parentBuilder, collectionExpression.GetPropertyInfo(),
+        keySelector)
+    {
+    }
+
+    public CollectionPropertyBuilder(StateConfigurationBuilder<TState> parentBuilder, PropertyInfo propertyInfo,
+        Expression<Func<TEntry, TKey>> keySelector) : base(parentBuilder, propertyInfo)
     {
         _keySelector = keySelector;
     }
