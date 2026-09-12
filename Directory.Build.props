@@ -49,7 +49,7 @@
 
   <!-- Source Link Package (for all projects) -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All"/>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All"/>
   </ItemGroup>
 
   <!-- Include icon in NuGet packages -->

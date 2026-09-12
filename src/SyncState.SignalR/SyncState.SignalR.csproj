@@ -10,7 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.0" />
+      <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" />
     </ItemGroup>
 
     <ItemGroup>
