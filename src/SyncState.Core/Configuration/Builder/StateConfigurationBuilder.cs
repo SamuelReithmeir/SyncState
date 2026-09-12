@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using SyncState.Configuration.Interfaces;
 using SyncState.Configuration.InternalInterfaces;
@@ -11,6 +12,8 @@ namespace SyncState.Configuration.Builder;
 
 internal abstract class StateConfigurationBuilder
 {
+    public abstract Type StateType { get; }
+
     public abstract StateConfiguration Build();
 }
 
@@ -28,6 +31,8 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
     {
         _syncStateBuilder = syncStateBuilder;
     }
+
+    public override Type StateType => typeof(TState);
 
     public IPropertyConfigurationBuilder<TState, TProperty> Property<TProperty>(
         Expression<Func<TState, TProperty>> propertyExpression)
@@ -105,15 +110,33 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
             .Select(builder => builder.Build())
             .ToList();
 
-        //throw if a property was not configured
+        //throw if a property was configured more than once
+        var duplicateProperty = propertyConfigurations
+            .GroupBy(pc => pc.PropertyInfo.Name)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (duplicateProperty != null)
+        {
+            throw new InvalidOperationException(
+                $"Property {duplicateProperty.Key} was configured more than once for state type {typeof(TState).FullName}");
+        }
+
+        //assign registered property configurations to unconfigured properties, throw if none matches
         var stateProperties = typeof(TState).GetProperties();
         foreach (var property in stateProperties)
         {
-            if (propertyConfigurations.All(pc => pc.PropertyInfo.Name != property.Name))
+            if (propertyConfigurations.Any(pc => pc.PropertyInfo.Name == property.Name))
+            {
+                continue;
+            }
+
+            var registration = ResolvePropertyConfigurationRegistration(property);
+            if (registration == null)
             {
                 throw new InvalidOperationException(
                     $"Property {property.Name} was not configured for state type {typeof(TState).FullName}");
             }
+
+            propertyConfigurations.Add(registration.CreateBuilder(this, property).Build());
         }
 
         var configuration = new StateConfiguration<TState>
@@ -135,5 +158,36 @@ internal class StateConfigurationBuilder<TState> : StateConfigurationBuilder, II
         TExtension extension)
     {
         return AddExtension(extension);
+    }
+
+    /// <summary>
+    /// Returns the registered property configuration with the highest match precedence for <paramref name="property"/>,
+    /// or null if none matches.
+    /// </summary>
+    private PropertyConfigurationRegistration? ResolvePropertyConfigurationRegistration(PropertyInfo property)
+    {
+        var bestMatches = _syncStateBuilder.PropertyConfigurationRegistrations
+            .Select(registration => (Registration: registration, Precedence: registration.GetMatchPrecedence(property)))
+            .Where(match => match.Precedence > PropertyConfigurationRegistration.NoMatch)
+            .GroupBy(match => match.Precedence)
+            .OrderByDescending(group => group.Key)
+            .FirstOrDefault()
+            ?.Select(match => match.Registration)
+            .ToList();
+
+        if (bestMatches == null)
+        {
+            return null;
+        }
+
+        if (bestMatches.Count > 1)
+        {
+            var configurationTypes = string.Join(", ", bestMatches.Select(r => r.ConfigurationType.FullName));
+            throw new InvalidOperationException(
+                $"Property {property.Name} of state type {typeof(TState).FullName} matches several registered " +
+                $"property configurations: {configurationTypes}. Configure the property explicitly.");
+        }
+
+        return bestMatches[0];
     }
 }

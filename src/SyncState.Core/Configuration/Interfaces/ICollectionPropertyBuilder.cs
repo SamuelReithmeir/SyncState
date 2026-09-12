@@ -75,6 +75,19 @@ public interface ICollectionPropertyBuilder<TState, TEntry, TKey>
         return this;
     }
 
+    /// <summary>
+    /// Applies the collection configuration <typeparamref name="TConfiguration"/> to this collection property.
+    /// Calls chained after this one configure the property further.
+    /// </summary>
+    /// <typeparam name="TConfiguration">The collection configuration class.</typeparam>
+    /// <returns>The collection property builder for method chaining.</returns>
+    new ICollectionPropertyBuilder<TState, TEntry, TKey> ApplyConfiguration<TConfiguration>()
+        where TConfiguration : ICollectionPropertyConfiguration<TEntry, TKey>, new()
+    {
+        new TConfiguration().Configure(this);
+        return this;
+    }
+
     ICollectionPropertyBuilder<TState, TEntry, TKey> On<TCommand>(
         Action<TCommand, ICollectionPropertyManager<TEntry, TKey>> handler)
         where TCommand : notnull;
