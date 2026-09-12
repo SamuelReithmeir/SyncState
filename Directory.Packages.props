@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="8.0.0" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
